@@ -2,10 +2,14 @@ services:
   nekro-user-panel:
     build: .
     container_name: nekro_user_panel
-    restart: unless-stopped
+    restart: always
     network_mode: host
-    env_file:
-      - .env
+    volumes:
+      - ./instances.json:/app/instances.json:ro
     environment:
       - PANEL_HOST=0.0.0.0
       - PANEL_PORT=9054
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=Wdx030014
+      - PANEL_JWT_SECRET=nekro-user-panel-secret-change-me
+      - PANEL_JWT_EXPIRE_HOURS=24
