@@ -18,10 +18,24 @@ SENSITIVE_MODEL_FIELDS = {
     "token",
 }
 
-# 禁止普通用户在"基本配置"里看到的 system 配置项（黑名单模式）。
-# MODEL_GROUPS 内含所有模型组和 API Key，必须通过专门的 model-groups 接口过滤后访问。
-BLOCKED_SYSTEM_CONFIG_KEYS = {
-    "MODEL_GROUPS",
+# 允许普通用户在"基本配置"里看到/修改的 system 配置项（仅"模型配置"分类）。
+# 基于 NA 后端 i18n_category == "模型配置" 的实际字段列表。
+ALLOWED_SYSTEM_CONFIG_KEYS = {
+    "USE_MODEL_GROUP",
+    "DEBUG_MIGRATION_MODEL_GROUP",
+    "FALLBACK_MODEL_GROUP",
+    "AI_SCRIPT_MAX_RETRY_TIMES",
+    "AI_CHAT_LLM_API_MAX_RETRIES",
+    "AI_GENERATE_TIMEOUT",
+    "AI_REQUEST_STREAM_MODE",
+    "AI_STREAM_FIRST_TOKEN_TIMEOUT",
+    "PLUGIN_GENERATE_MODEL_GROUP",
+    "PLUGIN_APPLY_MODEL_GROUP",
+}
+
+# 允许的 i18n_category 分类名（用于动态匹配，防止后续 NA 版本新增字段遗漏）
+ALLOWED_SYSTEM_CONFIG_CATEGORIES = {
+    "模型配置",
 }
 
 
@@ -105,17 +119,17 @@ def filter_model_group_test_request(data: dict, allowed: List[str] = None) -> di
 
 
 def is_allowed_system_config_key(key: str) -> bool:
-    """判断普通用户是否可以访问指定的 system 配置项（黑名单模式）。"""
+    """判断普通用户是否可以访问指定的 system 配置项（白名单模式，仅模型配置）。"""
     if not key:
         return False
-    # MODEL_GROUPS 内含所有模型组和 API Key，必须通过专门的 model-groups 接口过滤后访问。
-    return key.upper() not in {k.upper() for k in BLOCKED_SYSTEM_CONFIG_KEYS}
+    return key in ALLOWED_SYSTEM_CONFIG_KEYS
 
 
 def filter_config_list_response(data: Any) -> Any:
     """
     过滤基本配置列表响应。
-    黑名单模式：展示所有配置项，仅隐藏 MODEL_GROUPS 等敏感项，并遮蔽 secret 值。
+    白名单模式：仅展示"模型配置"分类的配置项，并遮蔽 secret 值。
+    同时支持按 key 白名单和按 i18n_category 分类动态匹配。
     """
     if not isinstance(data, list):
         return data
@@ -125,12 +139,21 @@ def filter_config_list_response(data: Any) -> Any:
         if not isinstance(item, dict):
             continue
         key = item.get("key", "")
-        if not is_allowed_system_config_key(key):
-            continue
-        safe_item = dict(item)
-        if safe_item.get("is_secret"):
-            safe_item["value"] = ""
-        filtered.append(safe_item)
+        # 按 key 白名单匹配
+        allowed_by_key = key in ALLOWED_SYSTEM_CONFIG_KEYS
+        # 按 i18n_category 分类动态匹配
+        i18n_cat = item.get("i18n_category", "")
+        if isinstance(i18n_cat, dict):
+            cat_name = i18n_cat.get("zh", "") or i18n_cat.get("zh-CN", "") or i18n_cat.get("en", "")
+        else:
+            cat_name = i18n_cat or ""
+        allowed_by_category = cat_name in ALLOWED_SYSTEM_CONFIG_CATEGORIES
+
+        if allowed_by_key or allowed_by_category:
+            safe_item = dict(item)
+            if safe_item.get("is_secret"):
+                safe_item["value"] = ""
+            filtered.append(safe_item)
 
     return filtered
 
