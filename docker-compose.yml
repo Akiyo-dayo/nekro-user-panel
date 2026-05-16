@@ -1,0 +1,11 @@
+services:
+  nekro-user-panel:
+    build: .
+    container_name: nekro_user_panel
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - .env
+    environment:
+      - PANEL_HOST=0.0.0.0
+      - PANEL_PORT=9054
