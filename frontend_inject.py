@@ -44,13 +44,16 @@ def get_login_override_script() -> str:
         const panelToken = localStorage.getItem(TOKEN_KEY);
         if (panelToken) {
             // userInfo 必须非 null，否则 NA 前端认为未登录直接跳转 login
+            const panelUsername = localStorage.getItem('nekro_user_panel_username') || 'user';
             const savedUserInfo = localStorage.getItem('nekro_user_panel_userinfo');
             const userInfo = savedUserInfo ? JSON.parse(savedUserInfo) : {
-                username: 'user',
+                username: panelUsername,
                 userId: 1,
                 perm_level: 2,
                 perm_role: 'Admin',
             };
+            // 始终用面板用户名覆盖
+            userInfo.username = panelUsername;
             const authData = {
                 state: { token: panelToken, userInfo: userInfo },
                 version: 0,
@@ -70,26 +73,31 @@ def get_login_override_script() -> str:
 
         // 更新 zustand auth-storage（NA 前端的持久化 store）
         try {
+            const panelUsername = localStorage.getItem('nekro_user_panel_username') || 'user';
             const authStorage = JSON.parse(localStorage.getItem('auth-storage') || '{}');
             if (!authStorage.state) authStorage.state = {};
             authStorage.state.token = token;
             // 保持 userInfo 不变，如果没有则设置默认值
             if (!authStorage.state.userInfo) {
                 authStorage.state.userInfo = {
-                    username: 'user',
+                    username: panelUsername,
                     userId: 1,
                     perm_level: 2,
                     perm_role: 'Admin',
                 };
+            } else {
+                authStorage.state.userInfo.username = panelUsername;
             }
             localStorage.setItem('auth-storage', JSON.stringify(authStorage));
         } catch(e) {}
 
-        // 异步获取真实的 userInfo 并保存
+        // 异步获取真实的 userInfo 并保存（但用面板用户名覆盖）
         originalFetch('/api/user/me', {
             headers: { 'Authorization': 'Bearer ' + token }
         }).then(r => r.ok ? r.json() : null).then(info => {
             if (info) {
+                const panelUsername = localStorage.getItem('nekro_user_panel_username') || 'user';
+                info.username = panelUsername;
                 localStorage.setItem('nekro_user_panel_userinfo', JSON.stringify(info));
                 try {
                     const authStorage = JSON.parse(localStorage.getItem('auth-storage') || '{}');
@@ -128,7 +136,36 @@ def get_login_override_script() -> str:
             }
         }
 
-        return originalFetch.call(this, input, options);
+        const resp = await originalFetch.call(this, input, options);
+
+        // 3. 拦截 /api/user/me 和 /api/user/info 响应，替换用户名为面板用户名
+        if ((url.includes('/api/user/me') || url.includes('/api/user/info')) && resp.ok) {
+            try {
+                const panelUsername = localStorage.getItem('nekro_user_panel_username');
+                if (panelUsername) {
+                    const cloned = resp.clone();
+                    const data = await cloned.json();
+                    if (data && data.username) {
+                        data.username = panelUsername;
+                        // 同步更新 auth-storage
+                        try {
+                            const authStorage = JSON.parse(localStorage.getItem('auth-storage') || '{}');
+                            if (authStorage.state && authStorage.state.userInfo) {
+                                authStorage.state.userInfo.username = panelUsername;
+                                localStorage.setItem('auth-storage', JSON.stringify(authStorage));
+                            }
+                        } catch(e) {}
+                        return new Response(JSON.stringify(data), {
+                            status: resp.status,
+                            statusText: resp.statusText,
+                            headers: resp.headers,
+                        });
+                    }
+                }
+            } catch(e) {}
+        }
+
+        return resp;
     };
 
     async function handleLoginRequest(options) {
@@ -168,7 +205,9 @@ def get_login_override_script() -> str:
             const data = await resp.json();
             setStoredToken(data.access_token);
 
-            // 管理员登录 → 跳转到管理页面
+            // 保存面板用户名，用于覆盖 /api/user/me 返回的 NA admin 用户名
+            localStorage.setItem('nekro_user_panel_username', username);
+
             if (data.role === 'admin' && data.redirect) {
                 setTimeout(() => { window.location.href = data.redirect; }, 300);
                 return new Response(JSON.stringify({

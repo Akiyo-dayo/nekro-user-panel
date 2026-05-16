@@ -4,7 +4,6 @@ Nekro User Panel - 响应过滤器
 """
 
 import copy
-import re
 from typing import Any, Dict, List, Optional
 
 
@@ -19,31 +18,13 @@ SENSITIVE_MODEL_FIELDS = {
     "token",
 }
 
-# 允许普通用户在“基本配置”里看到/修改的 system 配置项。
-# 这里只开放模型选择/模型参数相关字段，避免暴露系统级密钥、适配器、云端等敏感配置。
-ALLOWED_SYSTEM_CONFIG_KEYS = {
-    "USE_MODEL_GROUP",
-    "CHAT_MODEL",
-    "CHAT_PROXY",
-    "MODEL_TYPE",
-    "ENABLE_VISION",
-    "ENABLE_COT",
-    "TEMPERATURE",
-    "TOP_P",
-    "TOP_K",
-    "PRESENCE_PENALTY",
-    "FREQUENCY_PENALTY",
-    "MAX_CONTEXT_LENGTH",
-    "MAX_RESPONSE_TOKENS",
-    "MAX_TOKENS",
+# 禁止普通用户在"基本配置"里看到的 system 配置项（黑名单模式）。
+# MODEL_GROUPS 内含所有模型组和 API Key，必须通过专门的 model-groups 接口过滤后访问。
+BLOCKED_SYSTEM_CONFIG_KEYS = {
+    "MODEL_GROUPS",
 }
 
-ALLOWED_SYSTEM_CONFIG_PATTERNS = [
-    re.compile(r"^(CHAT_MODEL|CHAT_PROXY|USE_MODEL_GROUP)$", re.IGNORECASE),
-    re.compile(r"^(TEMPERATURE|TOP_P|TOP_K|PRESENCE_PENALTY|FREQUENCY_PENALTY)$", re.IGNORECASE),
-    re.compile(r"^(MAX_CONTEXT_LENGTH|MAX_RESPONSE_TOKENS|MAX_TOKENS)$", re.IGNORECASE),
-    re.compile(r"^(ENABLE_VISION|ENABLE_COT|VISION_MODEL)$", re.IGNORECASE),
-]
+
 
 
 PRIVATE_GROUP_NAMES = {
@@ -124,20 +105,17 @@ def filter_model_group_test_request(data: dict, allowed: List[str] = None) -> di
 
 
 def is_allowed_system_config_key(key: str) -> bool:
+    """判断普通用户是否可以访问指定的 system 配置项（黑名单模式）。"""
     if not key:
         return False
     # MODEL_GROUPS 内含所有模型组和 API Key，必须通过专门的 model-groups 接口过滤后访问。
-    if key.upper() == "MODEL_GROUPS":
-        return False
-    if key in ALLOWED_SYSTEM_CONFIG_KEYS:
-        return True
-    return any(pattern.match(key) for pattern in ALLOWED_SYSTEM_CONFIG_PATTERNS)
+    return key.upper() not in {k.upper() for k in BLOCKED_SYSTEM_CONFIG_KEYS}
 
 
 def filter_config_list_response(data: Any) -> Any:
     """
     过滤基本配置列表响应。
-    只保留模型相关配置项，并隐藏 secret 值。
+    黑名单模式：展示所有配置项，仅隐藏 MODEL_GROUPS 等敏感项，并遮蔽 secret 值。
     """
     if not isinstance(data, list):
         return data
@@ -147,11 +125,12 @@ def filter_config_list_response(data: Any) -> Any:
         if not isinstance(item, dict):
             continue
         key = item.get("key", "")
-        if is_allowed_system_config_key(key):
-            safe_item = dict(item)
-            if safe_item.get("is_secret"):
-                safe_item["value"] = ""
-            filtered.append(safe_item)
+        if not is_allowed_system_config_key(key):
+            continue
+        safe_item = dict(item)
+        if safe_item.get("is_secret"):
+            safe_item["value"] = ""
+        filtered.append(safe_item)
 
     return filtered
 
