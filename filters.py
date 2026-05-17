@@ -31,6 +31,7 @@ ALLOWED_SYSTEM_CONFIG_KEYS = {
     "AI_STREAM_FIRST_TOKEN_TIMEOUT",
     "PLUGIN_GENERATE_MODEL_GROUP",
     "PLUGIN_APPLY_MODEL_GROUP",
+    "SYSTEM_LANG",
 }
 
 # 允许的 i18n_category 分类名（用于动态匹配，防止后续 NA 版本新增字段遗漏）
@@ -192,3 +193,4 @@ def apply_response_filter(filter_name: str, data: Any, allowed_model_groups: Lis
     if filter_name == "config_list":
         return filter_config_list_response(data)
     return data
+

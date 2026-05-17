@@ -107,6 +107,9 @@ ALLOWED_ROUTES: List[Tuple[str, str]] = [
     # ============ 版本信息 ============
     ("GET", r"^/api/config/version$"),
 
+    # ============ 空间回收（只读缓存状态） ============
+    ("GET", r"^/api/space-cleanup/scan/load-cache$"),
+
     # ============ 事件流 ============
     ("GET", r"^/api/events/stream$"),
 
@@ -164,3 +167,4 @@ def is_route_allowed(method: str, path: str) -> bool:
             return True
 
     return False
+

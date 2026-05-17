@@ -56,11 +56,22 @@ INSTANCES: Dict[str, InstanceConfig] = load_instances()
 
 
 def reload_instances():
-    """热重载实例配置"""
+    """热重载实例配置，同时使代理 HTTP 客户端缓存失效"""
     global INSTANCES
     new_instances = load_instances()
     INSTANCES.clear()
     INSTANCES.update(new_instances)
+    # 通知代理层清除缓存的 HTTP 客户端（端口可能已变更）
+    _notify_proxy_reload()
+
+
+def _notify_proxy_reload():
+    """通知代理层清除 HTTP 客户端缓存"""
+    try:
+        from proxy import invalidate_http_clients
+        invalidate_http_clients()
+    except ImportError:
+        pass
 
 
 def get_instance(user_id: str) -> Optional[InstanceConfig]:
@@ -86,3 +97,4 @@ PANEL_PORT = int(os.getenv("PANEL_PORT", "9054"))
 
 # ============ 前端静态文件 ============
 FRONTEND_DIR = os.getenv("FRONTEND_DIR", "./frontend_static")
+

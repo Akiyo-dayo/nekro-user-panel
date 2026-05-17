@@ -28,12 +28,21 @@ _http_clients: Dict[str, httpx.AsyncClient] = {}
 
 
 async def get_http_client(instance: InstanceConfig) -> httpx.AsyncClient:
-    """获取指定实例的 HTTP 客户端"""
+    """获取指定实例的 HTTP 客户端（base_url 变化时自动重建）"""
     global _http_clients
     key = instance.id
+    expected_base_url = instance.na_backend_url
+
+    if key in _http_clients and not _http_clients[key].is_closed:
+        # 检查 base_url 是否与当前配置一致，不一致则关闭旧客户端
+        existing_base = str(_http_clients[key]._base_url).rstrip("/")
+        if existing_base != expected_base_url.rstrip("/"):
+            await _http_clients[key].aclose()
+            del _http_clients[key]
+
     if key not in _http_clients or _http_clients[key].is_closed:
         _http_clients[key] = httpx.AsyncClient(
-            base_url=instance.na_backend_url,
+            base_url=expected_base_url,
             timeout=httpx.Timeout(60.0, connect=10.0),
             follow_redirects=False,
             limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
@@ -48,6 +57,15 @@ async def close_http_client():
         if not client.is_closed:
             await client.aclose()
     _http_clients = {}
+
+
+def invalidate_http_clients():
+    """
+    使所有缓存的 HTTP 客户端失效（同步调用）。
+    下次 get_http_client 时会根据最新配置重建客户端。
+    """
+    global _http_clients
+    _http_clients.clear()
 
 
 def _is_streaming_request(path: str) -> bool:
@@ -191,12 +209,14 @@ async def _check_system_config_permission(method: str, path: str, body: Optional
                 keys.append(data.get("key"))
             if "data" in data and isinstance(data["data"], dict):
                 keys.extend(data["data"].keys())
+            if "configs" in data and isinstance(data["configs"], dict):
+                keys.extend(data["configs"].keys())
             if "items" in data and isinstance(data["items"], list):
                 for item in data["items"]:
                     if isinstance(item, dict):
                         keys.append(item.get("key"))
             # 兼容直接以 {KEY: value} 形式提交的批量保存。
-            keys.extend(k for k in data.keys() if k not in ("data", "items", "key", "value"))
+            keys.extend(k for k in data.keys() if k not in ("data", "configs", "items", "key", "value"))
         elif isinstance(data, list):
             for item in data:
                 if isinstance(item, dict):
@@ -370,3 +390,5 @@ async def _proxy_streaming(
             "X-Accel-Buffering": "no",
         },
     )
+
+
