@@ -5,7 +5,7 @@ services:
     restart: always
     network_mode: host
     volumes:
-      - ./instances.json:/app/instances.json:ro
+      - ./instances.json:/app/instances.json
     environment:
       - PANEL_HOST=0.0.0.0
       - PANEL_PORT=9054

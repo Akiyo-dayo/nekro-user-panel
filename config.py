@@ -58,7 +58,9 @@ INSTANCES: Dict[str, InstanceConfig] = load_instances()
 def reload_instances():
     """热重载实例配置"""
     global INSTANCES
-    INSTANCES = load_instances()
+    new_instances = load_instances()
+    INSTANCES.clear()
+    INSTANCES.update(new_instances)
 
 
 def get_instance(user_id: str) -> Optional[InstanceConfig]:

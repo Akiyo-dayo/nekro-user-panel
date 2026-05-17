@@ -152,10 +152,13 @@ async def create_instance(data: dict, user: PanelUser = Depends(get_current_pane
 
 @app.put("/panel/admin/instances/{instance_id}", tags=["Panel Admin"])
 async def update_instance(instance_id: str, data: dict, user: PanelUser = Depends(get_current_panel_user)):
-    """更新实例配置（管理员专用）"""
+    """更新实例配置（管理员专用），支持修改用户ID（登录名）"""
     if not is_admin(user):
         return JSONResponse(status_code=403, content={"detail": "仅管理员可操作"})
-    data["id"] = instance_id
+    # 如果前端传了新的 id 且与 URL 中的不同，则视为重命名
+    new_id = data.get("id", instance_id)
+    data["_old_id"] = instance_id
+    data["id"] = new_id
     return _save_instance(data, create=False)
 
 
@@ -185,6 +188,9 @@ def _save_instance(data: dict, create: bool):
     import json
     from pathlib import Path
 
+    # 提取内部字段
+    old_id = data.pop("_old_id", None)
+
     # 验证必填字段
     required = ["id", "panel_password", "na_port", "na_admin_pass"]
     for field in required:
@@ -201,15 +207,20 @@ def _save_instance(data: dict, create: bool):
             return JSONResponse(status_code=409, content={"detail": f"实例 {data['id']} 已存在"})
         instances_list.append(data)
     else:
-        # 更新已有实例
+        # 更新已有实例（支持重命名：old_id -> new id）
+        lookup_id = old_id or data["id"]
         found = False
         for i, inst in enumerate(instances_list):
-            if inst.get("id") == data["id"]:
+            if inst.get("id") == lookup_id:
+                # 如果是重命名，检查新 ID 是否与其他实例冲突
+                if old_id and data["id"] != old_id:
+                    if any(j.get("id") == data["id"] for j in instances_list if j.get("id") != old_id):
+                        return JSONResponse(status_code=409, content={"detail": f"实例 {data['id']} 已存在"})
                 instances_list[i] = data
                 found = True
                 break
         if not found:
-            return JSONResponse(status_code=404, content={"detail": f"实例 {data['id']} 不存在"})
+            return JSONResponse(status_code=404, content={"detail": f"实例 {lookup_id} 不存在"})
 
     with open(path, "w", encoding="utf-8") as f:
         json.dump(instances_list, f, ensure_ascii=False, indent=2)

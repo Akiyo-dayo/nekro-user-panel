@@ -130,7 +130,7 @@ async function editInstance(id) {
     editingId = id;
     document.getElementById('modal-title').textContent = '编辑实例: ' + id;
     document.getElementById('f-id').value = data.id;
-    document.getElementById('f-id').disabled = true;
+    document.getElementById('f-id').disabled = false;
     document.getElementById('f-password').value = data.panel_password;
     document.getElementById('f-port').value = data.na_port;
     document.getElementById('f-admin-user').value = data.na_admin_user;
