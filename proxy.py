@@ -97,6 +97,53 @@ async def _check_model_group_permission(method: str, path: str, body: Optional[b
             pass
 
 
+def _sanitize_model_group_body(body: bytes, path: str, method: str) -> bytes:
+    """
+    对模型组保存请求做预处理：将应为数字的字段从空字符串转为 0。
+    NA 后端要求 TOKEN_INPUT_RATE / TOKEN_COMPLETION_RATE 等字段为数字类型，
+    但前端在用户未填写时会发送空字符串，导致验证失败。
+    """
+    if method != "POST" or not body:
+        return body
+    match = re.match(r"^/api/config/model-groups/([^/]+)$", path)
+    if not match or match.group(1) == "actions":
+        return body
+
+    import json
+    try:
+        data = json.loads(body)
+    except (json.JSONDecodeError, ValueError):
+        return body
+
+    if not isinstance(data, dict):
+        return body
+
+    # 已知的数字字段列表
+    NUMERIC_FIELDS = {
+        "TOKEN_INPUT_RATE", "TOKEN_COMPLETION_RATE",
+        "MAX_TOKENS", "TEMPERATURE", "TOP_P",
+        "FREQUENCY_PENALTY", "PRESENCE_PENALTY",
+    }
+
+    changed = False
+    for key in NUMERIC_FIELDS:
+        if key in data and isinstance(data[key], str):
+            val = data[key].strip()
+            if val == "":
+                data[key] = 0
+                changed = True
+            else:
+                try:
+                    data[key] = float(val) if "." in val else int(val)
+                    changed = True
+                except ValueError:
+                    pass
+
+    if changed:
+        return json.dumps(data, ensure_ascii=False).encode("utf-8")
+    return body
+
+
 async def _check_system_config_permission(method: str, path: str, body: Optional[bytes] = None) -> None:
     """限制普通用户只能读取/修改模型相关的 system 配置项。"""
     match = re.match(r"^/api/config/(?:get|set)/(?:system|basic_config)/([^/]+)$", path)
@@ -216,6 +263,10 @@ async def proxy_request(request: Request, user: Optional[PanelUser] = None) -> R
 
     # 7. 发送代理请求
     client = await get_http_client(instance)
+
+    # 7.1 预处理模型组请求体（修复空字符串数字字段）
+    if body and method == "POST":
+        body = _sanitize_model_group_body(body, path, method)
 
     try:
         # SSE 流式请求特殊处理
