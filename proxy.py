@@ -99,9 +99,15 @@ async def _check_model_group_permission(method: str, path: str, body: Optional[b
 
 def _sanitize_model_group_body(body: bytes, path: str, method: str) -> bytes:
     """
-    对模型组保存请求做预处理：将应为数字的字段从空字符串转为 0。
-    NA 后端要求 TOKEN_INPUT_RATE / TOKEN_COMPLETION_RATE 等字段为数字类型，
-    但前端在用户未填写时会发送空字符串，导致验证失败。
+    对模型组保存请求做预处理：修正数字类型字段。
+    NA 后端 ModelConfigGroup 中 TOKEN_INPUT_RATE / TOKEN_COMPLETION_RATE 等字段为 float 类型，
+    TEMPERATURE / TOP_P 等为 Optional[float]。
+    原版 NA 前端不会发送 TOKEN_INPUT_RATE 等字段（由后端使用默认值 1.0），
+    但经过代理 GET 后回显再保存时，可能出现空字符串，导致 Pydantic 验证失败。
+    处理策略：
+    - 必填数字字段（有默认值）：空字符串 → 移除（让后端用默认值）
+    - 可选数字字段：空字符串 → null
+    - 字符串形式的数字：转为实际数字类型
     """
     if method != "POST" or not body:
         return body
@@ -118,19 +124,36 @@ def _sanitize_model_group_body(body: bytes, path: str, method: str) -> bytes:
     if not isinstance(data, dict):
         return body
 
-    # 已知的数字字段列表
-    NUMERIC_FIELDS = {
-        "TOKEN_INPUT_RATE", "TOKEN_COMPLETION_RATE",
-        "MAX_TOKENS", "TEMPERATURE", "TOP_P",
-        "FREQUENCY_PENALTY", "PRESENCE_PENALTY",
+    # 有默认值的必填 float 字段 — 空字符串时移除，让 Pydantic 用默认值
+    DEFAULTED_NUMERIC_FIELDS = {
+        "TOKEN_INPUT_RATE", "TOKEN_COMPLETION_RATE", "MODEL_PRICE_RATE",
+    }
+    # Optional[float/int] 字段 — 空字符串时设为 null
+    OPTIONAL_NUMERIC_FIELDS = {
+        "TEMPERATURE", "TOP_P", "TOP_K",
+        "PRESENCE_PENALTY", "FREQUENCY_PENALTY",
+        "MAX_TOKENS",
     }
 
     changed = False
-    for key in NUMERIC_FIELDS:
+    for key in DEFAULTED_NUMERIC_FIELDS:
         if key in data and isinstance(data[key], str):
             val = data[key].strip()
             if val == "":
-                data[key] = 0
+                del data[key]
+                changed = True
+            else:
+                try:
+                    data[key] = float(val)
+                    changed = True
+                except ValueError:
+                    pass
+
+    for key in OPTIONAL_NUMERIC_FIELDS:
+        if key in data and isinstance(data[key], str):
+            val = data[key].strip()
+            if val == "":
+                data[key] = None
                 changed = True
             else:
                 try:
