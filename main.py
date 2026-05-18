@@ -247,9 +247,10 @@ async def switch_instance(instance_id: str, user: PanelUser = Depends(get_curren
     if not inst:
         return JSONResponse(status_code=404, content={"detail": "实例不存在"})
     response = JSONResponse(content={"status": "ok", "instance_id": instance_id, "comment": inst.comment})
+    import urllib.parse
     response.set_cookie(
         key="admin_instance",
-        value=instance_id,
+        value=urllib.parse.quote(instance_id),
         path="/",
         samesite="lax",
         max_age=86400 * 7,
@@ -262,7 +263,8 @@ async def get_current_instance(request: Request, user: PanelUser = Depends(get_c
     """获取管理员当前管理的实例"""
     if not is_admin(user):
         return JSONResponse(status_code=403, content={"detail": "仅管理员可操作"})
-    instance_id = request.cookies.get("admin_instance", "")
+    import urllib.parse
+    instance_id = urllib.parse.unquote(request.cookies.get("admin_instance", ""))
     inst = get_instance(instance_id) if instance_id else None
     if inst:
         return {"instance_id": inst.id, "comment": inst.comment, "na_port": inst.na_port}
@@ -319,15 +321,19 @@ async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get
     instance = None
     if is_admin_user:
         # admin 用户：从 cookie 中读取选择的实例
-        admin_instance_id = request.cookies.get("admin_instance")
+        import urllib.parse
+        admin_instance_id = urllib.parse.unquote(request.cookies.get("admin_instance", ""))
         if admin_instance_id:
             instance = get_instance(admin_instance_id)
         if not instance:
             from config import INSTANCES as _INSTANCES
             if _INSTANCES:
                 instance = next(iter(_INSTANCES.values()))
-    elif _user and _user.instance:
+    elif _user:
+        # 已认证用户：只能访问自己绑定的实例
         instance = _user.instance
+        if not instance:
+            return HTMLResponse(content="<h1>您的账户未绑定有效实例</h1>", status_code=403)
     else:
         # 未登录时，使用第一个可用实例来加载前端页面（登录页是通用的）
         from config import INSTANCES

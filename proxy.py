@@ -4,6 +4,7 @@ Nekro User Panel - 反向代理核心（多实例版）
 """
 
 import re
+import urllib.parse
 from typing import Dict, Optional
 
 import httpx
@@ -251,14 +252,17 @@ async def proxy_request(request: Request, user: Optional[PanelUser] = None) -> R
     instance = None
     if is_admin_user:
         # admin 用户：从 cookie 中读取选择的实例
-        admin_instance_id = request.cookies.get("admin_instance")
+        admin_instance_id = urllib.parse.unquote(request.cookies.get("admin_instance", ""))
         if admin_instance_id:
             instance = get_instance(admin_instance_id)
         # 如果没有选择实例或实例无效，使用第一个
         if not instance and INSTANCES:
             instance = next(iter(INSTANCES.values()))
-    elif user and user.instance:
+    elif user:
+        # 已认证用户：只能访问自己绑定的实例，不允许 fallback
         instance = user.instance
+        if not instance:
+            raise HTTPException(status_code=403, detail="您的账户未绑定有效实例")
     else:
         # 未认证时使用第一个可用实例（用于加载前端静态资源等）
         if INSTANCES:
