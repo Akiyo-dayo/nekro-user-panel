@@ -22,6 +22,7 @@ from auth import (
     get_current_panel_user,
     get_na_backend_token,
     get_optional_panel_user,
+    get_optional_panel_user_lenient,
     is_admin,
 )
 from config import PANEL_HOST, PANEL_PORT, PANEL_JWT_EXPIRE_HOURS, INSTANCES, INSTANCES_FILE, get_instance, reload_instances
@@ -292,8 +293,8 @@ async def api_proxy(request: Request, _user: Optional[PanelUser] = Depends(get_o
 
 
 @app.get("/webui/{path:path}", include_in_schema=False)
-async def webui_proxy(request: Request, _user: Optional[PanelUser] = Depends(get_optional_panel_user)):
-    """代理前端静态文件请求到 NA 后端"""
+async def webui_proxy(request: Request, _user: Optional[PanelUser] = Depends(get_optional_panel_user_lenient)):
+    """代理前端静态文件请求到 NA 后端（使用宽松认证，确保登录页静态资源可加载）"""
     return await proxy_request(request, _user)
 
 
@@ -307,10 +308,14 @@ async def root_redirect():
 
 
 @app.get("/webui", include_in_schema=False)
-async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get_optional_panel_user)):
+async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get_optional_panel_user_lenient)):
     """
     拦截前端首页请求，注入导航裁剪脚本。
     需要确定用户绑定的实例来获取对应的前端页面。
+    
+    注意：使用宽松认证（不抛401），因为首页需要能加载登录页面。
+    如果 token 过期，_user 为 None，会使用第一个实例加载前端（显示登录页）。
+    安全性由前端注入脚本保证：过期 token 的 API 请求会收到 401 并跳转登录。
     """
     import httpx
 
@@ -375,3 +380,4 @@ if __name__ == "__main__":
         reload=False,
         log_level="info",
     )
+

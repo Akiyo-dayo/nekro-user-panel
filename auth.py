@@ -159,7 +159,51 @@ async def get_current_panel_user(request: Request) -> PanelUser:
 
 async def get_optional_panel_user(request: Request) -> Optional[PanelUser]:
     """尝试解析面板用户，失败时返回 None 而不是抛出 401。
-    先尝试 Authorization header，如果失败再尝试 cookie。"""
+    先尝试 Authorization header，如果失败再尝试 cookie。
+    
+    重要安全逻辑：
+    - 如果请求中没有任何认证信息 → 返回 None（允许匿名访问前端静态资源）
+    - 如果请求中携带了认证信息但无效/过期 → 抛出 401（防止 fallback 到其他实例）
+    """
+    has_credentials = False
+
+    # 1. 尝试从 Authorization header 获取 token
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        has_credentials = True
+        user = _try_decode_panel_token(auth_header[7:])
+        if user:
+            return user
+
+    # 2. Authorization header 失败或不存在，尝试从 cookie 获取
+    cookie_token = request.cookies.get("panel_token")
+    if cookie_token:
+        has_credentials = True
+        user = _try_decode_panel_token(cookie_token)
+        if user:
+            return user
+
+    # 3. 如果提供了认证信息但全部无效，拒绝请求（防止 fallback 到其他用户的实例）
+    if has_credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="认证已过期，请重新登录",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # 4. 完全没有认证信息 → 匿名访问（用于加载登录页等）
+    return None
+
+
+def is_admin(user: PanelUser) -> bool:
+    """判断用户是否是管理员"""
+    return user.instance_id == "__admin__"
+
+
+
+async def get_optional_panel_user_lenient(request: Request) -> Optional[PanelUser]:
+    """与 get_optional_panel_user 类似，但永远不抛出 401。
+    用于前端静态资源（CSS/JS/图片），这些资源在登录页面也需要加载。"""
     # 1. 尝试从 Authorization header 获取 token
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
@@ -167,7 +211,7 @@ async def get_optional_panel_user(request: Request) -> Optional[PanelUser]:
         if user:
             return user
 
-    # 2. Authorization header 失败或不存在，尝试从 cookie 获取
+    # 2. 尝试从 cookie 获取
     cookie_token = request.cookies.get("panel_token")
     if cookie_token:
         user = _try_decode_panel_token(cookie_token)
@@ -176,7 +220,3 @@ async def get_optional_panel_user(request: Request) -> Optional[PanelUser]:
 
     return None
 
-
-def is_admin(user: PanelUser) -> bool:
-    """判断用户是否是管理员"""
-    return user.instance_id == "__admin__"

@@ -264,7 +264,16 @@ async def proxy_request(request: Request, user: Optional[PanelUser] = None) -> R
         if not instance:
             raise HTTPException(status_code=403, detail="您的账户未绑定有效实例")
     else:
-        # 未认证时使用第一个可用实例（用于加载前端静态资源等）
+        # 未认证用户：区分 API 请求和静态资源请求
+        # /api/* 请求必须认证（防止未认证请求访问到其他用户的数据）
+        # /webui/* 静态资源请求允许匿名（登录页面需要加载 CSS/JS）
+        if path.startswith("/api/"):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="未登录，请先登录",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        # 静态资源使用第一个可用实例
         if INSTANCES:
             instance = next(iter(INSTANCES.values()))
 
@@ -394,5 +403,6 @@ async def _proxy_streaming(
             "X-Accel-Buffering": "no",
         },
     )
+
 
 
