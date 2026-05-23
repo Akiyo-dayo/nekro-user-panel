@@ -12,7 +12,7 @@ from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from starlette import status
 
-from auth import PanelUser, get_na_backend_token
+from auth import PanelUser, clear_na_backend_token, get_na_backend_token
 from config import INSTANCES, InstanceConfig, get_instance
 from filters import (
     apply_response_filter,
@@ -336,6 +336,19 @@ async def proxy_request(request: Request, user: Optional[PanelUser] = None) -> R
             headers=proxy_headers,
             content=body,
         )
+
+        # NA 后端 token 可能因实例重启、密钥轮换或后端主动失效而提前不可用。
+        # 收到 401 时清理该实例缓存，重新获取 token，并仅重试一次，避免用户端长期卡在“未授权访问”。
+        if response.status_code == status.HTTP_401_UNAUTHORIZED:
+            clear_na_backend_token(instance)
+            na_token = await get_na_backend_token(instance)
+            proxy_headers["Authorization"] = f"Bearer {na_token}"
+            response = await client.request(
+                method=method,
+                url=target_url,
+                headers=proxy_headers,
+                content=body,
+            )
 
         # 8. 过滤响应（admin 拥有完整权限，不能隐藏任何模型组/配置项）
         filter_name = None if is_admin_user else should_filter_response(method, path)

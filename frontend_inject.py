@@ -422,7 +422,6 @@ def get_nav_filter_script() -> str:
 
     // ============ 配置：需要隐藏的导航菜单项 ============
     const HIDDEN_NAV_KEYWORDS = [
-        '插件', 'Plugin', 'plugin',
         '适配器', 'Adapter', 'adapter',
         '重启', 'Restart', 'restart',
         '空间清理', 'Space Cleanup', 'space-cleanup',
@@ -499,7 +498,8 @@ def get_nav_filter_script() -> str:
 
     // ============ 路由守卫 ============
     const BLOCKED_HASH_ROUTES = [
-        '#/plugins',
+        '#/plugins/editor',
+        '#/plugin-editor',
         '#/adapters',
         '#/settings/theme',
         '#/settings/space-cleanup',

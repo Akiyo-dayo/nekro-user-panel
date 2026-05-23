@@ -50,6 +50,11 @@ class LoginRequest(BaseModel):
 _na_token_cache: Dict[str, Tuple[str, datetime]] = {}
 
 
+def clear_na_backend_token(instance: InstanceConfig) -> None:
+    """清理指定 NA 实例的管理员 token 缓存"""
+    _na_token_cache.pop(instance.id, None)
+
+
 async def get_na_backend_token(instance: InstanceConfig) -> str:
     """获取指定 NA 实例的管理员 token（带缓存）"""
     global _na_token_cache

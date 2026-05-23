@@ -18,6 +18,17 @@ SENSITIVE_MODEL_FIELDS = {
     "token",
 }
 
+SENSITIVE_KEYWORDS = (
+    "KEY",
+    "SECRET",
+    "PASSWORD",
+    "TOKEN",
+    "API_KEY",
+    "ACCESS_KEY",
+    "PRIVATE",
+    "CREDENTIAL",
+)
+
 # 允许普通用户在"基本配置"里看到/修改的 system 配置项（仅"模型配置"分类）。
 # 基于 NA 后端 i18n_category == "模型配置" 的实际字段列表。
 ALLOWED_SYSTEM_CONFIG_KEYS = {
@@ -67,8 +78,46 @@ def sanitize_model_group(group: Any) -> Any:
         return group
     sanitized = copy.deepcopy(group)
     for key in list(sanitized.keys()):
-        if key in SENSITIVE_MODEL_FIELDS or any(word in key.upper() for word in ("KEY", "SECRET", "PASSWORD", "TOKEN")):
+        if key in SENSITIVE_MODEL_FIELDS or any(word in key.upper() for word in SENSITIVE_KEYWORDS):
             sanitized[key] = ""
+    return sanitized
+
+
+def _sanitize_sensitive_values(data: Any) -> Any:
+    """递归遮蔽响应中的密钥类字段，防止插件接口泄露 API Key/Token。"""
+    if isinstance(data, list):
+        return [_sanitize_sensitive_values(item) for item in data]
+    if isinstance(data, dict):
+        sanitized = {}
+        for key, value in data.items():
+            key_text = str(key).upper()
+            if key in SENSITIVE_MODEL_FIELDS or any(word in key_text for word in SENSITIVE_KEYWORDS):
+                sanitized[key] = ""
+            else:
+                sanitized[key] = _sanitize_sensitive_values(value)
+        return sanitized
+    return data
+
+
+def sanitize_plugin_management_response(data: Any) -> Any:
+    """
+    过滤插件管理响应。
+    普通用户可看到插件列表/详情并管理启用状态，但不能看到或进入插件配置项页面，
+    因此统一将 hasConfig 置为 False，并递归遮蔽潜在密钥字段。
+    """
+    sanitized = _sanitize_sensitive_values(copy.deepcopy(data))
+
+    def hide_config_flag(item: Any) -> None:
+        if isinstance(item, dict):
+            if "hasConfig" in item:
+                item["hasConfig"] = False
+            for value in item.values():
+                hide_config_flag(value)
+        elif isinstance(item, list):
+            for child in item:
+                hide_config_flag(child)
+
+    hide_config_flag(sanitized)
     return sanitized
 
 
@@ -183,6 +232,8 @@ def should_filter_response(method: str, path: str) -> Optional[str]:
         return "model_groups"
     if method == "GET" and path in ("/api/config/list/system", "/api/config/list/basic_config"):
         return "config_list"
+    if method == "GET" and (path == "/api/plugins/list" or path.startswith("/api/plugins/detail/")):
+        return "plugin_management"
     return None
 
 
@@ -192,5 +243,7 @@ def apply_response_filter(filter_name: str, data: Any, allowed_model_groups: Lis
         return filter_model_groups_response(data, allowed_model_groups)
     if filter_name == "config_list":
         return filter_config_list_response(data)
+    if filter_name == "plugin_management":
+        return sanitize_plugin_management_response(data)
     return data
 
