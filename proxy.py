@@ -20,6 +20,7 @@ from filters import (
     filter_model_group_test_request,
     filter_model_group_update,
     is_allowed_system_config_key,
+    is_sensitive_plugin_config_key,
     should_filter_response,
 )
 from route_whitelist import is_route_allowed
@@ -231,6 +232,51 @@ async def _check_system_config_permission(method: str, path: str, body: Optional
                 )
 
 
+async def _check_plugin_config_permission(method: str, path: str, body: Optional[bytes] = None) -> None:
+    """限制普通用户访问/修改插件配置中的 API Key、密钥、Token 等敏感项。"""
+    match = re.match(r"^/api/config/(?:get|set)/plugin_[^/]+/([^/]+)$", path)
+    if match:
+        key = urllib.parse.unquote(match.group(1))
+        if is_sensitive_plugin_config_key(key):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"无权访问敏感插件配置项: {key}",
+            )
+
+    match = re.match(r"^/api/config/(?:batch|save)/plugin_[^/]+$", path)
+    if match and method == "POST" and body:
+        import json
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            return
+
+        keys = []
+        if isinstance(data, dict):
+            if "key" in data:
+                keys.append(data.get("key"))
+            if "data" in data and isinstance(data["data"], dict):
+                keys.extend(data["data"].keys())
+            if "configs" in data and isinstance(data["configs"], dict):
+                keys.extend(data["configs"].keys())
+            if "items" in data and isinstance(data["items"], list):
+                for item in data["items"]:
+                    if isinstance(item, dict):
+                        keys.append(item.get("key"))
+            keys.extend(k for k in data.keys() if k not in ("data", "configs", "items", "key", "value"))
+        elif isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict):
+                    keys.append(item.get("key"))
+
+        for key in keys:
+            if key and is_sensitive_plugin_config_key(str(key)):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"无权修改敏感插件配置项: {key}",
+                )
+
+
 async def proxy_request(request: Request, user: Optional[PanelUser] = None) -> Response:
     """
     核心代理逻辑（多实例版）：
@@ -295,6 +341,7 @@ async def proxy_request(request: Request, user: Optional[PanelUser] = None) -> R
         allowed_groups = instance.allowed_model_groups or None
         await _check_model_group_permission(method, path, body, allowed_groups)
         await _check_system_config_permission(method, path, body)
+        await _check_plugin_config_permission(method, path, body)
 
     # 4. 获取 NA 后端 token
     na_token = await get_na_backend_token(instance)

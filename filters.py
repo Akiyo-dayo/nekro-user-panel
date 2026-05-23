@@ -62,6 +62,14 @@ PRIVATE_GROUP_NAMES = {
 }
 
 
+def is_sensitive_plugin_config_key(key: str) -> bool:
+    """判断插件配置项是否属于敏感项。"""
+    if not key:
+        return False
+    key_text = str(key).upper()
+    return any(word in key_text for word in SENSITIVE_KEYWORDS) or key_text in SENSITIVE_MODEL_FIELDS
+
+
 def infer_allowed_model_groups(data: Any) -> List[str]:
     """
     在实例未显式配置 allowed_model_groups 时，自动推断可交给用户管理的分组。
@@ -102,23 +110,29 @@ def _sanitize_sensitive_values(data: Any) -> Any:
 def sanitize_plugin_management_response(data: Any) -> Any:
     """
     过滤插件管理响应。
-    普通用户可看到插件列表/详情并管理启用状态，但不能看到或进入插件配置项页面，
-    因此统一将 hasConfig 置为 False，并递归遮蔽潜在密钥字段。
+    普通用户可看到插件列表/详情、数据管理和插件配置页，但敏感字段仍需隐藏。
     """
-    sanitized = _sanitize_sensitive_values(copy.deepcopy(data))
+    return _sanitize_sensitive_values(copy.deepcopy(data))
 
-    def hide_config_flag(item: Any) -> None:
-        if isinstance(item, dict):
-            if "hasConfig" in item:
-                item["hasConfig"] = False
-            for value in item.values():
-                hide_config_flag(value)
-        elif isinstance(item, list):
-            for child in item:
-                hide_config_flag(child)
 
-    hide_config_flag(sanitized)
-    return sanitized
+def sanitize_plugin_config_response(data: Any) -> Any:
+    """
+    过滤插件配置响应。
+    - 配置列表中隐藏敏感配置项，保留其它配置项供用户查看/修改。
+    - 字典/嵌套结构中递归遮蔽敏感值，避免 API Key 等泄露。
+    """
+    if isinstance(data, list):
+        filtered = []
+        for item in data:
+            if not isinstance(item, dict):
+                filtered.append(item)
+                continue
+            key = item.get("key", "")
+            if is_sensitive_plugin_config_key(str(key)) or item.get("is_secret"):
+                continue
+            filtered.append(item)
+        return filtered
+    return _sanitize_sensitive_values(copy.deepcopy(data))
 
 
 def filter_model_groups_response(data: Any, allowed: List[str] = None) -> Any:
@@ -234,6 +248,8 @@ def should_filter_response(method: str, path: str) -> Optional[str]:
         return "config_list"
     if method == "GET" and (path == "/api/plugins/list" or path.startswith("/api/plugins/detail/")):
         return "plugin_management"
+    if method == "GET" and (path.startswith("/api/config/list/plugin_") or path.startswith("/api/config/get/plugin_")):
+        return "plugin_config"
     return None
 
 
@@ -245,5 +261,7 @@ def apply_response_filter(filter_name: str, data: Any, allowed_model_groups: Lis
         return filter_config_list_response(data)
     if filter_name == "plugin_management":
         return sanitize_plugin_management_response(data)
+    if filter_name == "plugin_config":
+        return sanitize_plugin_config_response(data)
     return data
 

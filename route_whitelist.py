@@ -104,7 +104,7 @@ ALLOWED_ROUTES: List[Tuple[str, str]] = [
     ("POST", r"^/api/config/model-groups/actions/test$"),
     ("POST", r"^/api/config/model-groups/actions/test-inline$"),
 
-    # ============ 插件管理（不含插件编辑器/插件配置项） ============
+    # ============ 插件管理（开放数据管理与非敏感配置项） ============
     ("GET", r"^/api/plugins/list$"),
     ("GET", r"^/api/plugins/detail/[^/]+$"),
     ("GET", r"^/api/plugins/docs/[^/]+$"),
@@ -116,6 +116,11 @@ ALLOWED_ROUTES: List[Tuple[str, str]] = [
     ("DELETE", r"^/api/plugins/data/[^/]+/[^/]+$"),
     ("DELETE", r"^/api/plugins/package/[^/]+$"),
     ("POST", r"^/api/plugins/package/update/[^/]+$"),
+    ("GET", r"^/api/config/list/plugin_[^/]+$"),
+    ("GET", r"^/api/config/get/plugin_[^/]+/[^/]+$"),
+    ("POST", r"^/api/config/set/plugin_[^/]+/[^/]+$"),
+    ("POST", r"^/api/config/batch/plugin_[^/]+$"),
+    ("POST", r"^/api/config/save/plugin_[^/]+$"),
 
     # ============ 版本信息 ============
     ("GET", r"^/api/config/version$"),
@@ -144,11 +149,10 @@ ALLOWED_ROUTES: List[Tuple[str, str]] = [
 
 BLOCKED_ROUTES: List[Tuple[str, str]] = []
 
-# 插件编辑器允许直接读取/修改插件源码，插件配置接口可能返回第三方 API Key、密钥等
-# 敏感项；普通用户端绝不开放。即使后续误加白名单，黑名单也会优先拦截。
+# 插件编辑器允许直接读取/修改插件源码，普通用户端绝不开放。
+# 插件配置接口已在 proxy.py/filters.py 中按配置键过滤，仅开放非敏感项。
 BLOCKED_ROUTES.extend([
     ("*", r"^/api/plugin-editor(/.*)?$"),
-    ("*", r"^/api/config/(?:list|get|set|batch|save)/plugin_.*$"),
 ])
 
 if CHANNEL_OVERRIDE_BLOCKED:
