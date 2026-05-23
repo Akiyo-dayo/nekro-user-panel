@@ -430,8 +430,12 @@ def get_nav_filter_script() -> str:
         '命令', 'Command', 'command',
         'Webhook', 'webhook',
         '云端', 'Cloud', 'cloud',
+        'Nekro 云', 'Nekro Cloud',
         '主题', 'Theme', 'theme',
         '公告', 'Announcement', 'announcement',
+        '个人中心', 'Profile', 'profile', 'Personal Center', 'personal-center',
+        '社区账户', 'Community Account', 'community account',
+        '插件编辑器', 'Plugin Editor', 'plugin editor',
     ];
 
     // 频道详情中需要隐藏的 Tab
@@ -445,7 +449,26 @@ def get_nav_filter_script() -> str:
         '空间清理', 'Space',
         '命令', 'Command',
         '主题', 'Theme',
+        '调色盘', 'Palette', 'palette',
+        '个人中心', 'Profile',
     ];
+
+    function hideByAccessibleLabel(labelKeywords) {
+        const targets = document.querySelectorAll('button, a, [role="button"], [aria-label], [title]');
+        targets.forEach(el => {
+            const label = [
+                el.getAttribute('aria-label') || '',
+                el.getAttribute('title') || '',
+                (el.textContent || '').trim(),
+            ].join(' ');
+            for (const keyword of labelKeywords) {
+                if (label.includes(keyword)) {
+                    el.style.display = 'none';
+                    break;
+                }
+            }
+        });
+    }
 
     // ============ 核心隐藏逻辑 ============
     function hideElements() {
@@ -473,6 +496,14 @@ def get_nav_filter_script() -> str:
                 }
             }
         });
+
+        // 1.1 隐藏顶部栏中与用户无关的快捷入口：调色盘/主题、社区账户、GitHub Stars 等
+        hideByAccessibleLabel([
+            '当前：浅色模式', '当前：暗色模式', '点击切换到暗色模式', '点击切换到浅色模式',
+            '调色盘', 'Palette', 'palette', '主题', 'Theme',
+            '社区账户', 'Community Account',
+            'Stars',
+        ]);
 
         // 2. 隐藏频道详情中的覆盖配置 Tab
         const tabs = document.querySelectorAll('[role="tab"], [class*="MuiTab"]');
@@ -502,6 +533,10 @@ def get_nav_filter_script() -> str:
         '#/plugin-editor',
         '#/adapters',
         '#/settings/theme',
+        '#/profile',
+        '#/user/profile',
+        '#/personal-center',
+        '#/settings/palette',
         '#/settings/space-cleanup',
         '#/settings/commands',
         '#/workspace',
