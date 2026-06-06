@@ -518,7 +518,7 @@ def get_nav_filter_script() -> str:
         ]);
 
         // 2. 隐藏频道详情中的覆盖配置 Tab
-        const tabs = document.querySelectorAll('[role="tab"], [class*="MuiTab"]');
+        const tabs = document.querySelectorAll('[role="tab"], button[class*="MuiTab-root"]');
         tabs.forEach(tab => {
             const text = (tab.textContent || '').trim();
             for (const keyword of HIDDEN_CHANNEL_TABS) {
