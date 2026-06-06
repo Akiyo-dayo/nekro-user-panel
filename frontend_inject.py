@@ -453,9 +453,17 @@ def get_nav_filter_script() -> str:
         '个人中心', 'Profile',
     ];
 
+    function isInMainContent(el) {
+        return !!el.closest('main, [role="main"]');
+    }
+
     function hideByAccessibleLabel(labelKeywords) {
-        const targets = document.querySelectorAll('button, a, [role="button"], [aria-label], [title]');
+        const targets = document.querySelectorAll(
+            'header button, header a, header [role="button"], header [aria-label], header [title], ' +
+            '[role="banner"] button, [role="banner"] a, [role="banner"] [role="button"], [role="banner"] [aria-label], [role="banner"] [title]'
+        );
         targets.forEach(el => {
+            if (isInMainContent(el)) return;
             const label = [
                 el.getAttribute('aria-label') || '',
                 el.getAttribute('title') || '',
@@ -474,12 +482,16 @@ def get_nav_filter_script() -> str:
     function hideElements() {
         // 1. 隐藏侧边栏导航项
         const allClickable = document.querySelectorAll(
-            'a, [role="button"], [role="menuitem"], [role="listitem"], ' +
-            '[class*="ListItem"], [class*="MenuItem"], [class*="NavItem"], ' +
-            '[class*="MuiListItemButton"], [class*="MuiButtonBase"]'
+            'nav a, nav [role="button"], nav [role="menuitem"], nav [role="listitem"], ' +
+            'nav [class*="ListItem"], nav [class*="MenuItem"], nav [class*="NavItem"], ' +
+            'nav [class*="MuiListItemButton"], nav [class*="MuiButtonBase"], ' +
+            'aside a, aside [role="button"], aside [role="menuitem"], aside [role="listitem"], ' +
+            'aside [class*="ListItem"], aside [class*="MenuItem"], aside [class*="NavItem"], ' +
+            'aside [class*="MuiListItemButton"], aside [class*="MuiButtonBase"]'
         );
 
         allClickable.forEach(el => {
+            if (isInMainContent(el)) return;
             const text = (el.textContent || '').trim();
             const href = el.getAttribute('href') || '';
 
