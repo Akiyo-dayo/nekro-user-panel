@@ -322,39 +322,244 @@ async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get
     # 判断是否为 admin
     is_admin_user = _user and _user.instance_id == "__admin__"
 
+    # 未登录时不再读取任何 NA 实例。
+    # 旧逻辑会默认取 instances.json 的第一个实例加载登录页，
+    # 如果第一个实例离线，所有用户访问 /webui 都会 500。
+    # 这里返回面板自带的轻量登录页，登录成功后再按 JWT 绑定实例加载对应 NA。
+    if not _user:
+        login_html = """<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark" />
+  <title>Nekro User Panel</title>
+  <style>
+    :root {
+      --bg: #0b0d12;
+      --surface: #11151d;
+      --surface-2: #151a24;
+      --field: #0c1017;
+      --line: #242b38;
+      --line-strong: #333c4d;
+      --text: #eef3fb;
+      --muted: #9aa6b7;
+      --faint: #6e7a8c;
+      --accent: #8fb8ff;
+      --accent-hover: #a8c8ff;
+      --accent-text: #07101f;
+      --danger: #ff8d9b;
+      --success: #85e1b4;
+      --warning: #ffd08a;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 14% 10%, rgba(143,184,255,.12), transparent 28rem),
+        radial-gradient(circle at 86% 84%, rgba(133,225,180,.07), transparent 26rem),
+        var(--bg);
+      display: grid;
+      place-items: center;
+      padding: 28px;
+    }
+    body::before {
+      content: "";
+      position: fixed; inset: 0;
+      pointer-events: none;
+      background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: linear-gradient(to bottom, black, transparent 78%);
+    }
+    .wrap {
+      position: relative;
+      z-index: 1;
+      width: min(1020px, 100%);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 420px;
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--surface) 92%, transparent);
+      box-shadow: 0 22px 70px rgba(0,0,0,.38);
+      min-height: 600px;
+    }
+    .context {
+      padding: 44px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border-right: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,.025), transparent);
+    }
+    .topline { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; }
+    .logo { width: 34px; height: 34px; display:grid; place-items:center; background: var(--accent); color: var(--accent-text); font-weight: 800; border-radius: 10px; letter-spacing: -.04em; }
+    h1 { margin: 0; max-width: 12ch; font-size: 52px; line-height: .98; letter-spacing: -.035em; text-wrap: balance; }
+    .copy { max-width: 58ch; margin: 20px 0 0; color: var(--muted); line-height: 1.72; font-size: 15px; text-wrap: pretty; }
+    .rule-list { display: grid; gap: 12px; margin-top: 34px; padding: 0; list-style: none; max-width: 620px; }
+    .rule-list li {
+      display: grid; grid-template-columns: 10px 1fr; gap: 12px; align-items: start;
+      color: #c9d2df; font-size: 14px; line-height: 1.55;
+    }
+    .dot { width: 7px; height: 7px; margin-top: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 16px rgba(133,225,180,.5); }
+    .meta { display:flex; flex-wrap:wrap; gap: 8px; margin-top: 40px; }
+    .meta span { color: var(--faint); border: 1px solid var(--line); padding: 7px 9px; border-radius: 9px; font-size: 12px; font-variant-numeric: tabular-nums; background: rgba(255,255,255,.018); }
+    .panel { padding: 44px 38px; display:flex; flex-direction:column; justify-content:center; background: var(--surface-2); }
+    .panel h2 { margin: 0; font-size: 24px; line-height: 1.18; letter-spacing: -.02em; }
+    .panel p { margin: 10px 0 28px; color: var(--muted); line-height: 1.6; font-size: 14px; }
+    label { display:block; margin: 18px 0 8px; color: #dbe3ef; font-size: 13px; font-weight: 650; }
+    input {
+      width: 100%;
+      min-height: 44px;
+      border-radius: 10px;
+      border: 1px solid var(--line-strong);
+      background: var(--field);
+      color: var(--text);
+      padding: 11px 12px;
+      font-size: 15px;
+      outline: none;
+      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+    input::placeholder { color: #8792a3; opacity: 1; }
+    input:hover { border-color: #455066; }
+    input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(143,184,255,.16); background: #0a0e15; }
+    button {
+      width: 100%;
+      min-height: 44px;
+      margin-top: 22px;
+      border: 0;
+      border-radius: 10px;
+      background: var(--accent);
+      color: var(--accent-text);
+      font-weight: 750;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background .18s ease, transform .18s ease, box-shadow .18s ease;
+    }
+    button:hover { background: var(--accent-hover); box-shadow: 0 10px 24px rgba(143,184,255,.18); }
+    button:active { transform: translateY(1px); }
+    button:disabled { opacity: .68; cursor: wait; box-shadow: none; }
+    .err { min-height: 21px; margin-top: 13px; color: var(--danger); font-size: 13px; line-height: 1.5; }
+    .note {
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      color: var(--faint);
+      font-size: 12px;
+      line-height: 1.65;
+    }
+    code { color: #b9c8df; background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 6px; padding: 1px 5px; }
+    @media (max-width: 860px) {
+      body { padding: 18px; place-items: start center; }
+      .wrap { grid-template-columns: 1fr; min-height: auto; }
+      .context { padding: 30px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .panel { padding: 30px; }
+      h1 { font-size: 40px; max-width: 14ch; }
+      .meta { margin-top: 28px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="context" aria-label="面板说明">
+      <div>
+        <div class="topline"><div class="logo" aria-hidden="true">N</div><span>Nekro User Panel</span></div>
+        <div style="margin-top:72px">
+          <h1>实例登录入口</h1>
+          <p class="copy">先验证面板账号，再连接账号绑定的 Nekro Agent。登录页本身不会请求默认实例，因此一个离线实例不会拖垮其他人的入口。</p>
+          <ul class="rule-list">
+            <li><span class="dot"></span><span>未认证访问只渲染本地登录页，不调用 <code>/api/token</code>。</span></li>
+            <li><span class="dot"></span><span>普通用户只会被路由到自己的绑定实例。</span></li>
+            <li><span class="dot"></span><span>管理员需要显式选择实例，不再回退到列表第一项。</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="meta"><span>route scoped</span><span>no default instance</span><span>status-aware errors</span></div>
+    </section>
+    <form class="panel" id="loginForm" autocomplete="on">
+      <h2>登录</h2>
+      <p>使用分配的面板账号。成功后会打开对应实例的控制台。</p>
+      <label for="username">用户名</label>
+      <input id="username" name="username" autocomplete="username" placeholder="例如 GBNA1" required autofocus />
+      <label for="password">密码</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" placeholder="输入面板密码" required />
+      <button type="submit">登录并打开实例</button>
+      <div class="err" id="err" role="status" aria-live="polite"></div>
+      <div class="note">如果登录后提示实例不可用，说明你绑定的 NA 后端离线。其他用户不受影响。</div>
+    </form>
+  </main>
+  <script>
+    const form = document.getElementById('loginForm');
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const btn = form.querySelector('button');
+      const err = document.getElementById('err');
+      btn.disabled = true;
+      btn.textContent = '正在验证';
+      err.textContent = '';
+      const body = { username: form.username.value.trim(), password: form.password.value };
+      try {
+        const res = await fetch('/panel/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || '登录失败，请检查用户名和密码');
+        if (data.access_token) localStorage.setItem('panel_token', data.access_token);
+        location.href = data.redirect || '/webui';
+      } catch (e) {
+        err.textContent = e.message || '登录失败，请稍后再试';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '登录并打开实例';
+      }
+    });
+  </script>
+</body>
+</html>"""
+        return HTMLResponse(content=login_html)
+
     # 确定目标实例
     instance = None
     if is_admin_user:
-        # admin 用户：从 cookie 中读取选择的实例
+        # admin 用户必须显式选择实例，不再默认取第一个实例。
+        # 否则第一个实例离线时会把 admin /webui 打成 500。
         import urllib.parse
         admin_instance_id = urllib.parse.unquote(request.cookies.get("admin_instance", ""))
         if admin_instance_id:
             instance = get_instance(admin_instance_id)
         if not instance:
-            from config import INSTANCES as _INSTANCES
-            if _INSTANCES:
-                instance = next(iter(_INSTANCES.values()))
+            return RedirectResponse(url="/panel/admin", status_code=302)
     elif _user:
         # 已认证用户：只能访问自己绑定的实例
         instance = _user.instance
         if not instance:
             return HTMLResponse(content="<h1>您的账户未绑定有效实例</h1>", status_code=403)
-    else:
-        # 未登录时，使用第一个可用实例来加载前端页面（登录页是通用的）
-        from config import INSTANCES
-        if INSTANCES:
-            instance = next(iter(INSTANCES.values()))
 
     if not instance:
         return HTMLResponse(content="<h1>无可用实例</h1>", status_code=503)
 
-    # 从对应 NA 后端获取原始 index.html
-    na_token = await get_na_backend_token(instance)
-    async with httpx.AsyncClient(base_url=instance.na_backend_url, timeout=10.0) as client:
-        resp = await client.get("/webui/", headers={"Authorization": f"Bearer {na_token}"})
-        if resp.status_code != 200:
-            return HTMLResponse(content="<h1>无法加载前端页面</h1>", status_code=502)
-        html = resp.text
+    # 从对应 NA 后端获取原始 index.html。
+    # 后端离线时返回可读错误，不让异常冒泡成 Internal Server Error。
+    try:
+        na_token = await get_na_backend_token(instance)
+        async with httpx.AsyncClient(base_url=instance.na_backend_url, timeout=10.0) as client:
+            resp = await client.get("/webui/", headers={"Authorization": f"Bearer {na_token}"})
+            if resp.status_code != 200:
+                return HTMLResponse(content=f"<h1>无法加载实例前端</h1><p>{instance.id} 返回 {resp.status_code}</p>", status_code=502)
+            html = resp.text
+    except Exception as exc:
+        return HTMLResponse(
+            content=(
+                "<h1>实例暂时不可用</h1>"
+                f"<p>无法连接到绑定实例：{instance.id} ({instance.na_backend_url})</p>"
+                "<p>这只影响当前实例，不会影响其他用户登录。</p>"
+                "<p><a href='/panel/admin'>返回管理页</a></p>"
+            ),
+            status_code=502,
+        )
 
     # 注入脚本
     if is_admin_user:

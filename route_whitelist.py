@@ -131,7 +131,8 @@ ALLOWED_ROUTES: List[Tuple[str, str]] = [
     # ============ 事件流 ============
     ("GET", r"^/api/events/stream$"),
 
-    # ============ 云端（只读） ============
+    # ============ 云端（插件市场下载 + 只读云端内容） ============
+    ("POST", r"^/api/cloud/plugins-market/download/[^/]+$"),
     ("GET", r"^/api/cloud/.*"),
 
     # ============ 通用资源（头像等） ============

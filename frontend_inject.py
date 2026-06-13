@@ -429,8 +429,6 @@ def get_nav_filter_script() -> str:
         '工作区', 'Workspace', 'workspace',
         '命令', 'Command', 'command',
         'Webhook', 'webhook',
-        '云端', 'Cloud', 'cloud',
-        'Nekro 云', 'Nekro Cloud',
         '主题', 'Theme', 'theme',
         '公告', 'Announcement', 'announcement',
         '个人中心', 'Profile', 'profile', 'Personal Center', 'personal-center',
@@ -552,7 +550,9 @@ def get_nav_filter_script() -> str:
         '#/settings/space-cleanup',
         '#/settings/commands',
         '#/workspace',
-        '#/cloud',
+        '#/cloud/profile',
+        '#/cloud/presets-market',
+        '#/cloud/telemetry',
         '#/commands',
     ];
 

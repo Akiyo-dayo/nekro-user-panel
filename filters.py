@@ -257,6 +257,7 @@ def filter_navigation_config() -> Dict[str, Any]:
             {"key": "chat-channel", "title": "频道管理", "icon": "Chat", "path": "/chat-channel", "children": [{"key": "chat-channel-management", "title": "频道列表", "path": "/chat-channel/management"}]},
             {"key": "user-manager", "title": "用户管理", "icon": "Group", "path": "/user-manager"},
             {"key": "presets", "title": "人设管理", "icon": "Face", "path": "/presets"},
+            {"key": "plugins-market", "title": "插件市场", "icon": "Extension", "path": "/cloud/plugins-market"},
             {"key": "logs", "title": "系统日志", "icon": "Terminal", "path": "/logs"},
             {"key": "sandbox-logs", "title": "沙盒日志", "icon": "Code", "path": "/sandbox-logs"},
             {"key": "settings", "title": "系统配置", "icon": "Settings", "path": "/settings", "children": [
