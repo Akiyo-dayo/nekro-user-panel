@@ -87,6 +87,17 @@ async def panel_login(req: LoginRequest):
     return response
 
 
+@app.post("/panel/logout", tags=["Panel Auth"])
+async def panel_logout():
+    """Clear panel authentication cookies."""
+    response = JSONResponse(content={"status": "ok", "message": "已退出登录"})
+    for key in ("panel_token", "admin_instance"):
+        response.delete_cookie(key=key, path="/")
+        # Explicit expired cookie for older browser/proxy combinations.
+        response.set_cookie(key=key, value="", path="/", max_age=0, expires=0, samesite="lax")
+    return response
+
+
 @app.get("/panel/nav-config", tags=["Panel Config"])
 async def get_nav_config(_user: PanelUser = Depends(get_current_panel_user)):
     """获取用户端面板的导航配置"""

@@ -66,6 +66,15 @@ def get_login_override_script() -> str:
         return localStorage.getItem(TOKEN_KEY) || localStorage.getItem('token');
     }
 
+    function clearPanelAuthStorage() {
+        try {
+            [TOKEN_KEY, 'token', 'panel_token', 'auth-storage', 'nekro_user_panel_username', 'nekro_user_panel_userinfo'].forEach(k => localStorage.removeItem(k));
+            ['panel_token', 'admin_instance'].forEach(k => {
+                document.cookie = k + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+            });
+        } catch(e) {}
+    }
+
     function setStoredToken(token) {
         localStorage.setItem(TOKEN_KEY, token);
         localStorage.setItem('token', token);  // NA 前端使用的 key
@@ -119,6 +128,14 @@ def get_login_override_script() -> str:
         // 1. 拦截登录请求
         if ((url.includes('/api/token') || url.includes('/api/user/login')) && options.method && options.method.toUpperCase() === 'POST') {
             return handleLoginRequest(options);
+        }
+
+        // 1.5 拦截退出登录，清理面板 token、NA token、zustand 持久化和 cookie
+        if (url.includes('/api/user/logout') || url.includes('/panel/logout')) {
+            try { await originalFetch.call(this, '/panel/logout', { method: 'POST' }); } catch(e) {}
+            clearPanelAuthStorage();
+            setTimeout(() => { window.location.href = '/webui'; }, 100);
+            return new Response(JSON.stringify({ status: 'ok', message: '已退出登录' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
         }
 
         // 2. 对所有 /api/* 请求注入面板 token
@@ -269,6 +286,25 @@ def get_login_override_script() -> str:
         // 拦截登录请求 (POST /api/token 或 POST /api/user/login)
         const isTokenLogin = self._panelMethod === 'POST' && self._panelUrl && self._panelUrl.includes('/api/token');
         const isUserLogin = self._panelMethod === 'POST' && self._panelUrl && self._panelUrl.includes('/api/user/login');
+
+        const isLogout = self._panelMethod === 'POST' && self._panelUrl && (self._panelUrl.includes('/api/user/logout') || self._panelUrl.includes('/panel/logout'));
+        if (isLogout) {
+            originalFetch('/panel/logout', { method: 'POST' }).catch(() => {}).finally(() => {
+                clearPanelAuthStorage();
+                Object.defineProperty(self, 'status', { get: () => 200 });
+                Object.defineProperty(self, 'statusText', { get: () => 'OK' });
+                Object.defineProperty(self, 'responseText', { get: () => '{"status":"ok","message":"已退出登录"}' });
+                Object.defineProperty(self, 'response', { get: () => '{"status":"ok","message":"已退出登录"}' });
+                Object.defineProperty(self, 'readyState', { get: () => 4 });
+                if (self.onreadystatechange) self.onreadystatechange();
+                self.dispatchEvent(new Event('readystatechange'));
+                if (self.onload) self.onload();
+                self.dispatchEvent(new Event('load'));
+                self.dispatchEvent(new Event('loadend'));
+                setTimeout(() => { window.location.href = '/webui'; }, 100);
+            });
+            return;
+        }
 
         if (isTokenLogin || isUserLogin) {
             // 解析请求体获取用户名密码

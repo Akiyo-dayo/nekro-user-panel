@@ -280,3 +280,32 @@ MIT
 如果浏览器仍看到旧的 `Internal Server Error`，通常是旧 cookie 或 localStorage 里残留了过期 token。可以清理当前站点数据后重新访问 `/webui`。
 
 如果登录后出现“实例暂时不可用”，说明账号绑定的 Nekro Agent 后端端口不可达，只影响该账号绑定的实例，不影响其他用户登录。
+
+
+## 退出登录行为
+
+面板提供 `POST /panel/logout` 用于清理认证状态。该接口会删除：
+
+- `panel_token`：面板 JWT Cookie
+- `admin_instance`：管理员当前选择的实例
+
+前端注入脚本会同步清理浏览器本地状态：
+
+- `nekro_user_panel_token`
+- `token`
+- `panel_token`
+- `auth-storage`
+- `nekro_user_panel_username`
+- `nekro_user_panel_userinfo`
+
+因此用户在 NA WebUI 点击“退出登录”后，不会因为 localStorage 或 Cookie 中残留 token 而继续保持登录态。管理员后台也提供独立的“退出登录”按钮。
+
+## 管理员后台设计
+
+管理员后台采用产品型控制台布局：
+
+- 左侧固定操作区，包含返回 WebUI 和退出登录
+- 右侧实例列表与概览指标
+- 管理员必须显式选择实例后才能进入对应 WebUI
+- 移动端自动切换为单列布局
+- 所有管理请求均携带面板 token，401/403 时会清理本地认证状态并返回登录页
