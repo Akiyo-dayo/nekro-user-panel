@@ -582,12 +582,12 @@ async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get
       <div>
         <div class="topline"><div class="logo" aria-hidden="true">N</div><span>Nekro User Panel</span></div>
         <div style="margin-top:72px">
-          <h1>实例登录入口</h1>
-          <p class="copy">先验证面板账号，再连接账号绑定的 Nekro Agent。登录页本身不会请求默认实例，因此一个离线实例不会拖垮其他人的入口。</p>
+          <h1>Nekro 控制台入口</h1>
+          <p class="copy">统一访问你的 Nekro Agent 控制台。登录后会自动进入分配给你的工作实例。</p>
           <ul class="rule-list">
-            <li><span class="dot"></span><span>未认证访问只渲染本地登录页，不调用 <code>/api/token</code>。</span></li>
-            <li><span class="dot"></span><span>普通用户只会被路由到自己的绑定实例。</span></li>
-            <li><span class="dot"></span><span>管理员需要显式选择实例，不再回退到列表第一项。</span></li>
+            <li><span class="dot"></span><span>独立面板认证，避免实例状态影响登录体验。</span></li>
+            <li><span class="dot"></span><span>每个账号仅访问自己的工作实例。</span></li>
+            <li><span class="dot"></span><span>管理员可在后台切换和维护全部实例。</span></li>
           </ul>
         </div>
       </div>
@@ -595,12 +595,12 @@ async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get
     </section>
     <form class="panel" id="loginForm" autocomplete="on">
       <h2>登录</h2>
-      <p>使用分配的面板账号。成功后会打开对应实例的控制台。</p>
+      <p>输入面板账号以继续访问控制台。</p>
       <label for="username">用户名</label>
       <input id="username" name="username" autocomplete="username" placeholder="例如 GBNA1" required autofocus />
       <label for="password">密码</label>
       <input id="password" name="password" type="password" autocomplete="current-password" placeholder="输入面板密码" required />
-      <button type="submit">登录并打开实例</button>
+      <button type="submit">登录</button>
       <div class="err" id="err" role="status" aria-live="polite"></div>
       <div class="note">如果登录后提示实例不可用，说明你绑定的 NA 后端离线。其他用户不受影响。</div>
     </form>
@@ -625,7 +625,7 @@ async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get
         err.textContent = e.message || '登录失败，请稍后再试';
       } finally {
         btn.disabled = false;
-        btn.textContent = '登录并打开实例';
+        btn.textContent = '登录';
       }
     });
   </script>
