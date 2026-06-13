@@ -391,7 +391,7 @@ def render_panel_error_page(
   <main class="shell">
     <aside class="status">
       <div class="brand"><div class="logo">N</div><span>Nekro User Panel</span></div>
-      <div><div class="code">{status_code}</div><div class="mini">实例路由没有完成。面板仍然在线。</div></div>
+      <div><div class="code">{status_code}</div><div class="mini">当前实例暂不可达</div></div>
     </aside>
     <section class="content">
       <h1>{safe_title}</h1>
@@ -401,7 +401,7 @@ def render_panel_error_page(
         {primary_action}
         {secondary_action}
       </div>
-      <div class="hint">这只影响当前绑定实例。其他用户的登录页和其他实例不会被这个错误拖下线。</div>
+      <div class="hint">如果问题持续存在，请联系管理员检查实例状态或后端端口。</div>
     </section>
   </main>
   <script>
@@ -650,7 +650,7 @@ async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get
         if not instance:
             return render_panel_error_page(
                 title="账户未绑定有效实例",
-                message="当前账号已通过认证，但没有找到可用的 Nekro Agent 实例绑定。请联系管理员检查 instances.json。",
+                message="当前账号没有可用的实例绑定。请联系管理员检查账号配置。",
                 status_code=403,
                 primary_href="/webui",
                 primary_label="返回登录页",
@@ -678,7 +678,7 @@ async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get
             if resp.status_code != 200:
                 return render_panel_error_page(
                     title="无法加载实例前端",
-                    message="绑定实例已响应请求，但没有返回可用的 WebUI 页面。",
+                    message="目标实例已响应，但未返回可用的 WebUI 页面。",
                     detail=f"实例 {instance.id} 返回 HTTP {resp.status_code}",
                     status_code=502,
                     primary_href="/webui",
@@ -691,7 +691,7 @@ async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get
     except Exception as exc:
         return render_panel_error_page(
             title="实例暂时不可用",
-            message="面板已经确认你的登录状态，但当前绑定的 Nekro Agent 后端无法连接。",
+            message="当前账号绑定的 Nekro Agent 实例暂时无法访问。",
             detail=f"实例 {instance.id} · {instance.na_backend_url}",
             status_code=502,
             primary_href="/webui",
