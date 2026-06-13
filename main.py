@@ -113,7 +113,7 @@ async def get_panel_user_info(user: PanelUser = Depends(get_current_panel_user))
 @app.post("/panel/reload-instances", tags=["Panel Admin"])
 async def reload_instances_endpoint(user: PanelUser = Depends(get_current_panel_user)):
     """热重载实例配置（管理员专用）"""
-    if not is_admin(user):
+    if user is None or not is_admin(user):
         return JSONResponse(status_code=403, content={"detail": "仅管理员可操作"})
     try:
         reload_instances()
@@ -242,10 +242,18 @@ def _save_instance(data: dict, create: bool):
 
 
 @app.get("/panel/admin", tags=["Panel Admin"], include_in_schema=False)
-async def admin_page(user: PanelUser = Depends(get_current_panel_user)):
+async def admin_page(user: Optional[PanelUser] = Depends(get_optional_panel_user_lenient)):
     """管理员页面"""
-    if not is_admin(user):
-        return JSONResponse(status_code=403, content={"detail": "仅管理员可操作"})
+    if user is None or not is_admin(user):
+        return render_panel_error_page(
+            title="仅管理员可操作",
+            message="当前账号没有访问管理后台的权限。请切换到管理员账号，或返回自己的实例入口。",
+            status_code=403,
+            primary_href="/webui",
+            primary_label="返回面板入口",
+            secondary_href="",
+            secondary_label="",
+        )
     from admin_page import get_admin_html
     return HTMLResponse(content=get_admin_html())
 
@@ -337,8 +345,9 @@ def render_panel_error_page(
     safe_detail = html.escape(detail)
     safe_primary_href = html.escape(primary_href, quote=True)
     safe_primary_label = html.escape(primary_label)
-    safe_secondary_href = html.escape(secondary_href, quote=True)
-    safe_secondary_label = html.escape(secondary_label)
+    safe_secondary_href = html.escape(secondary_href, quote=True) if secondary_href else ""
+    safe_secondary_label = html.escape(secondary_label) if secondary_label else ""
+    secondary_action = f'<a class="secondary" href="{safe_secondary_href}">{safe_secondary_label}</a>' if safe_secondary_href and safe_secondary_label else ""
     page = f"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -385,7 +394,7 @@ def render_panel_error_page(
       {f'<div class="detail">{safe_detail}</div>' if safe_detail else ''}
       <div class="actions">
         <a class="primary" href="{safe_primary_href}">{safe_primary_label}</a>
-        <a class="secondary" href="{safe_secondary_href}">{safe_secondary_label}</a>
+        {secondary_action}
       </div>
       <div class="hint">这只影响当前绑定实例。其他用户的登录页和其他实例不会被这个错误拖下线。</div>
     </section>
@@ -630,6 +639,8 @@ async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get
                 status_code=403,
                 primary_href="/webui",
                 primary_label="返回登录页",
+                secondary_href="",
+                secondary_label="",
             )
 
     if not instance:
@@ -639,6 +650,8 @@ async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get
             status_code=503,
             primary_href="/webui",
             primary_label="返回登录页",
+            secondary_href="",
+            secondary_label="",
         )
 
     # 从对应 NA 后端获取原始 index.html。
@@ -655,6 +668,8 @@ async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get
                     status_code=502,
                     primary_href="/webui",
                     primary_label="重新尝试",
+                    secondary_href="",
+                    secondary_label="",
                 )
             html = resp.text
     except Exception as exc:
@@ -665,6 +680,8 @@ async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get
             status_code=502,
             primary_href="/webui",
             primary_label="重新尝试",
+            secondary_href="",
+            secondary_label="",
         )
 
     # 注入脚本
