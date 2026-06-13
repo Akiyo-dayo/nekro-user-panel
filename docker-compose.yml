@@ -12,6 +12,7 @@ services:
       - ./auth.py:/app/auth.py
       - ./config.py:/app/config.py
       - ./main.py:/app/main.py
+      - ./admin_page.py:/app/admin_page.py
       - ./frontend_inject.py:/app/frontend_inject.py
     environment:
       - PANEL_HOST=0.0.0.0
