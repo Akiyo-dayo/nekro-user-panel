@@ -337,6 +337,7 @@ def render_panel_error_page(
     primary_label: str = "返回登录页",
     secondary_href: str = "/panel/admin",
     secondary_label: str = "打开管理后台",
+    logout_action: bool = False,
 ) -> HTMLResponse:
     """Render a polished standalone panel error page."""
     import html
@@ -348,6 +349,10 @@ def render_panel_error_page(
     safe_secondary_href = html.escape(secondary_href, quote=True) if secondary_href else ""
     safe_secondary_label = html.escape(secondary_label) if secondary_label else ""
     secondary_action = f'<a class="secondary" href="{safe_secondary_href}">{safe_secondary_label}</a>' if safe_secondary_href and safe_secondary_label else ""
+    if logout_action:
+        primary_action = f'<button class="primary" type="button" onclick="returnToLogin()">{safe_primary_label}</button>'
+    else:
+        primary_action = f'<a class="primary" href="{safe_primary_href}">{safe_primary_label}</a>'
     page = f"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -375,8 +380,8 @@ def render_panel_error_page(
     .msg{{margin:14px 0 0;color:var(--muted);line-height:1.75;font-size:15px;max-width:62ch;text-wrap:pretty}}
     .detail{{margin-top:22px;border:1px solid var(--line);background:var(--field);border-radius:12px;padding:13px 14px;color:#c5cfdd;font-size:13px;line-height:1.6;word-break:break-all;font-variant-numeric:tabular-nums}}
     .actions{{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}}
-    a{{min-height:40px;display:inline-flex;align-items:center;justify-content:center;padding:0 14px;border-radius:10px;text-decoration:none;font-size:13px;font-weight:750;transition:background .18s ease,border-color .18s ease,transform .18s ease}}
-    a:active{{transform:translateY(1px)}}.primary{{background:var(--accent);color:var(--accent-text)}}.primary:hover{{background:var(--accent-hover)}}.secondary{{border:1px solid var(--line-strong);color:var(--text);background:var(--surface-2)}}.secondary:hover{{border-color:var(--accent)}}
+    a,button{{min-height:40px;display:inline-flex;align-items:center;justify-content:center;padding:0 14px;border-radius:10px;text-decoration:none;font-size:13px;font-weight:750;transition:background .18s ease,border-color .18s ease,transform .18s ease;border:0;cursor:pointer;font-family:inherit}}
+    a:active,button:active{{transform:translateY(1px)}}.primary{{background:var(--accent);color:var(--accent-text)}}.primary:hover{{background:var(--accent-hover)}}.secondary{{border:1px solid var(--line-strong);color:var(--text);background:var(--surface-2)}}.secondary:hover{{border-color:var(--accent)}}
     .hint{{margin-top:24px;padding-top:18px;border-top:1px solid var(--line);color:var(--faint);font-size:12px;line-height:1.65}}
     @media(max-width:760px){{body{{padding:18px;place-items:start center}}.shell{{grid-template-columns:1fr}}.status{{border-right:0;border-bottom:1px solid var(--line);padding:26px}}.content{{padding:28px}}.code{{font-size:42px}}h1{{font-size:26px}}}}
     @media(prefers-reduced-motion:reduce){{*,*:before,*:after{{transition-duration:.01ms!important;animation-duration:.01ms!important}}}}
@@ -393,12 +398,22 @@ def render_panel_error_page(
       <p class="msg">{safe_message}</p>
       {f'<div class="detail">{safe_detail}</div>' if safe_detail else ''}
       <div class="actions">
-        <a class="primary" href="{safe_primary_href}">{safe_primary_label}</a>
+        {primary_action}
         {secondary_action}
       </div>
       <div class="hint">这只影响当前绑定实例。其他用户的登录页和其他实例不会被这个错误拖下线。</div>
     </section>
   </main>
+  <script>
+    async function returnToLogin() {{
+      try {{ await fetch('/panel/logout', {{ method: 'POST' }}); }} catch(e) {{}}
+      try {{
+        ['nekro_user_panel_token','nekro_user_panel_username','nekro_user_panel_userinfo','panel_token','token','auth-storage'].forEach(k => localStorage.removeItem(k));
+        ['panel_token','admin_instance'].forEach(k => {{ document.cookie = k + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'; }});
+      }} catch(e) {{}}
+      window.location.href = '/webui';
+    }}
+  </script>
 </body>
 </html>"""
     return HTMLResponse(content=page, status_code=status_code)
@@ -667,9 +682,10 @@ async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get
                     detail=f"实例 {instance.id} 返回 HTTP {resp.status_code}",
                     status_code=502,
                     primary_href="/webui",
-                    primary_label="重新尝试",
-                    secondary_href="",
-                    secondary_label="",
+                    primary_label="返回登录页",
+                    secondary_href="/webui",
+                    secondary_label="重新尝试",
+                    logout_action=True,
                 )
             html = resp.text
     except Exception as exc:
@@ -679,9 +695,10 @@ async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get
             detail=f"实例 {instance.id} · {instance.na_backend_url}",
             status_code=502,
             primary_href="/webui",
-            primary_label="重新尝试",
-            secondary_href="",
-            secondary_label="",
+            primary_label="返回登录页",
+            secondary_href="/webui",
+            secondary_label="重新尝试",
+            logout_action=True,
         )
 
     # 注入脚本
