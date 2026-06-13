@@ -318,6 +318,83 @@ async def root_redirect():
 # ============ 注入前端脚本 ============
 
 
+
+def render_panel_error_page(
+    *,
+    title: str,
+    message: str,
+    detail: str = "",
+    status_code: int = 502,
+    primary_href: str = "/webui",
+    primary_label: str = "返回登录页",
+    secondary_href: str = "/panel/admin",
+    secondary_label: str = "打开管理后台",
+) -> HTMLResponse:
+    """Render a polished standalone panel error page."""
+    import html
+    safe_title = html.escape(title)
+    safe_message = html.escape(message)
+    safe_detail = html.escape(detail)
+    safe_primary_href = html.escape(primary_href, quote=True)
+    safe_primary_label = html.escape(primary_label)
+    safe_secondary_href = html.escape(secondary_href, quote=True)
+    safe_secondary_label = html.escape(secondary_label)
+    page = f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark" />
+  <title>{safe_title} · Nekro User Panel</title>
+  <style>
+    :root {{
+      --bg:#0b0d12; --surface:#11151d; --surface-2:#151a24; --field:#0c1017;
+      --line:#242b38; --line-strong:#343d4f; --text:#eef3fb; --muted:#9aa6b7; --faint:#6e7a8c;
+      --accent:#8fb8ff; --accent-hover:#a8c8ff; --accent-text:#07101f; --danger:#ff8d9b; --warning:#ffd08a; --success:#85e1b4;
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+    }}
+    *{{box-sizing:border-box}} html,body{{min-height:100%}}
+    body{{margin:0;min-height:100dvh;color:var(--text);background:radial-gradient(circle at 14% 12%,rgba(255,208,138,.13),transparent 28rem),radial-gradient(circle at 88% 86%,rgba(143,184,255,.10),transparent 28rem),var(--bg);display:grid;place-items:center;padding:28px}}
+    body:before{{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.032) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.026) 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(to bottom,black,transparent 80%)}}
+    .shell{{position:relative;z-index:1;width:min(880px,100%);display:grid;grid-template-columns:280px minmax(0,1fr);border:1px solid var(--line);background:rgba(17,21,29,.9);box-shadow:0 24px 80px rgba(0,0,0,.42)}}
+    .status{{border-right:1px solid var(--line);padding:34px;background:linear-gradient(180deg,rgba(255,255,255,.03),transparent);display:flex;flex-direction:column;justify-content:space-between;gap:42px}}
+    .brand{{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px}}.logo{{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--warning);color:#1d1203;font-weight:850;letter-spacing:-.04em}}
+    .code{{font-size:54px;line-height:.95;letter-spacing:-.05em;font-weight:850;color:var(--warning);font-variant-numeric:tabular-nums}}
+    .mini{{margin-top:10px;color:var(--faint);font-size:13px;line-height:1.55}}
+    .content{{padding:42px;display:flex;flex-direction:column;justify-content:center}}
+    h1{{margin:0;font-size:32px;line-height:1.12;letter-spacing:-.03em;text-wrap:balance}}
+    .msg{{margin:14px 0 0;color:var(--muted);line-height:1.75;font-size:15px;max-width:62ch;text-wrap:pretty}}
+    .detail{{margin-top:22px;border:1px solid var(--line);background:var(--field);border-radius:12px;padding:13px 14px;color:#c5cfdd;font-size:13px;line-height:1.6;word-break:break-all;font-variant-numeric:tabular-nums}}
+    .actions{{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}}
+    a{{min-height:40px;display:inline-flex;align-items:center;justify-content:center;padding:0 14px;border-radius:10px;text-decoration:none;font-size:13px;font-weight:750;transition:background .18s ease,border-color .18s ease,transform .18s ease}}
+    a:active{{transform:translateY(1px)}}.primary{{background:var(--accent);color:var(--accent-text)}}.primary:hover{{background:var(--accent-hover)}}.secondary{{border:1px solid var(--line-strong);color:var(--text);background:var(--surface-2)}}.secondary:hover{{border-color:var(--accent)}}
+    .hint{{margin-top:24px;padding-top:18px;border-top:1px solid var(--line);color:var(--faint);font-size:12px;line-height:1.65}}
+    @media(max-width:760px){{body{{padding:18px;place-items:start center}}.shell{{grid-template-columns:1fr}}.status{{border-right:0;border-bottom:1px solid var(--line);padding:26px}}.content{{padding:28px}}.code{{font-size:42px}}h1{{font-size:26px}}}}
+    @media(prefers-reduced-motion:reduce){{*,*:before,*:after{{transition-duration:.01ms!important;animation-duration:.01ms!important}}}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <aside class="status">
+      <div class="brand"><div class="logo">N</div><span>Nekro User Panel</span></div>
+      <div><div class="code">{status_code}</div><div class="mini">实例路由没有完成。面板仍然在线。</div></div>
+    </aside>
+    <section class="content">
+      <h1>{safe_title}</h1>
+      <p class="msg">{safe_message}</p>
+      {f'<div class="detail">{safe_detail}</div>' if safe_detail else ''}
+      <div class="actions">
+        <a class="primary" href="{safe_primary_href}">{safe_primary_label}</a>
+        <a class="secondary" href="{safe_secondary_href}">{safe_secondary_label}</a>
+      </div>
+      <div class="hint">这只影响当前绑定实例。其他用户的登录页和其他实例不会被这个错误拖下线。</div>
+    </section>
+  </main>
+</body>
+</html>"""
+    return HTMLResponse(content=page, status_code=status_code)
+
+
 @app.get("/webui", include_in_schema=False)
 async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get_optional_panel_user_lenient)):
     """
@@ -547,10 +624,22 @@ async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get
         # 已认证用户：只能访问自己绑定的实例
         instance = _user.instance
         if not instance:
-            return HTMLResponse(content="<h1>您的账户未绑定有效实例</h1>", status_code=403)
+            return render_panel_error_page(
+                title="账户未绑定有效实例",
+                message="当前账号已通过认证，但没有找到可用的 Nekro Agent 实例绑定。请联系管理员检查 instances.json。",
+                status_code=403,
+                primary_href="/webui",
+                primary_label="返回登录页",
+            )
 
     if not instance:
-        return HTMLResponse(content="<h1>无可用实例</h1>", status_code=503)
+        return render_panel_error_page(
+            title="无可用实例",
+            message="面板暂时没有可路由的 Nekro Agent 实例。",
+            status_code=503,
+            primary_href="/webui",
+            primary_label="返回登录页",
+        )
 
     # 从对应 NA 后端获取原始 index.html。
     # 后端离线时返回可读错误，不让异常冒泡成 Internal Server Error。
@@ -559,17 +648,23 @@ async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get
         async with httpx.AsyncClient(base_url=instance.na_backend_url, timeout=10.0) as client:
             resp = await client.get("/webui/", headers={"Authorization": f"Bearer {na_token}"})
             if resp.status_code != 200:
-                return HTMLResponse(content=f"<h1>无法加载实例前端</h1><p>{instance.id} 返回 {resp.status_code}</p>", status_code=502)
+                return render_panel_error_page(
+                    title="无法加载实例前端",
+                    message="绑定实例已响应请求，但没有返回可用的 WebUI 页面。",
+                    detail=f"实例 {instance.id} 返回 HTTP {resp.status_code}",
+                    status_code=502,
+                    primary_href="/webui",
+                    primary_label="重新尝试",
+                )
             html = resp.text
     except Exception as exc:
-        return HTMLResponse(
-            content=(
-                "<h1>实例暂时不可用</h1>"
-                f"<p>无法连接到绑定实例：{instance.id} ({instance.na_backend_url})</p>"
-                "<p>这只影响当前实例，不会影响其他用户登录。</p>"
-                "<p><a href='/panel/admin'>返回管理页</a></p>"
-            ),
+        return render_panel_error_page(
+            title="实例暂时不可用",
+            message="面板已经确认你的登录状态，但当前绑定的 Nekro Agent 后端无法连接。",
+            detail=f"实例 {instance.id} · {instance.na_backend_url}",
             status_code=502,
+            primary_href="/webui",
+            primary_label="重新尝试",
         )
 
     # 注入脚本
