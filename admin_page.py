@@ -100,6 +100,18 @@ function clearAuthStorage(){
   ['nekro_user_panel_token','nekro_user_panel_username','nekro_user_panel_userinfo','panel_token','token','auth-storage'].forEach(k => localStorage.removeItem(k));
   ['panel_token','admin_instance'].forEach(k => { document.cookie = k + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'; });
 }
+function syncWebuiAuthStorage(){
+  if(!TOKEN) return;
+  localStorage.setItem('nekro_user_panel_token', TOKEN);
+  localStorage.setItem('panel_token', TOKEN);
+  localStorage.setItem('token', TOKEN);
+  localStorage.setItem('nekro_user_panel_username', 'admin');
+  localStorage.setItem('auth-storage', JSON.stringify({
+    state: { token: TOKEN, userInfo: { username: 'admin', userId: 1, perm_level: 2, perm_role: 'Admin' } },
+    version: 0,
+  }));
+  document.cookie = 'panel_token=' + encodeURIComponent(TOKEN) + '; path=/; max-age=86400; SameSite=Lax';
+}
 async function logout(){try { await fetch('/panel/logout', {method:'POST', headers}); } catch(e) {} clearAuthStorage(); location.href = '/webui';}
 
 async function loadCurrent(){
@@ -144,7 +156,7 @@ async function editInstance(id){const resp = await fetch(`/panel/admin/instances
 function closeModal(){document.getElementById('modal').classList.remove('active');}
 async function submitForm(){const body={id:document.getElementById('f-id').value.trim(),panel_password:document.getElementById('f-password').value,na_port:parseInt(document.getElementById('f-port').value),na_admin_user:document.getElementById('f-admin-user').value.trim(),na_admin_pass:document.getElementById('f-admin-pass').value,na_host:document.getElementById('f-host').value.trim(),comment:document.getElementById('f-comment').value.trim()}; if(!body.id || !body.panel_password || !body.na_port || !body.na_admin_pass){toast('请填写所有必填字段','error');return;} const url = editingId ? `/panel/admin/instances/${encodeURIComponent(editingId)}` : '/panel/admin/instances'; const method = editingId ? 'PUT' : 'POST'; const resp = await fetch(url,{method,headers,body:JSON.stringify(body)}); const result = await resp.json().catch(()=>({})); if(resp.ok){toast(result.message || '已保存','success'); closeModal(); loadInstances();} else {toast(result.detail || '操作失败','error');}}
 async function deleteInstance(id){if(!confirm(`确定删除实例 "${id}" 吗？`)) return; const resp = await fetch(`/panel/admin/instances/${encodeURIComponent(id)}`,{method:'DELETE',headers}); const result = await resp.json().catch(()=>({})); if(resp.ok){toast(result.message || '已删除','success'); loadInstances();} else {toast(result.detail || '删除失败','error');}}
-async function enterInstance(id){const resp = await fetch(`/panel/admin/switch-instance/${encodeURIComponent(id)}`,{method:'POST',headers}); if(resp.ok){toast('已切换到实例: '+id,'success'); await loadCurrent(); setTimeout(()=>{location.href='/webui#/dashboard';},350);} else {const err=await resp.json().catch(()=>({})); toast(err.detail || '切换失败','error');}}
+async function enterInstance(id){const resp = await fetch(`/panel/admin/switch-instance/${encodeURIComponent(id)}`,{method:'POST',headers}); if(resp.ok){syncWebuiAuthStorage(); toast('已切换到实例: '+id,'success'); await loadCurrent(); setTimeout(()=>{location.href='/webui#/dashboard';},350);} else {const err=await resp.json().catch(()=>({})); toast(err.detail || '切换失败','error');}}
 function toast(msg,type){const el=document.createElement('div');el.className='toast '+type;el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),3200);}
 loadInstances();
 </script>

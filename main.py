@@ -619,7 +619,12 @@ async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get
         const res = await fetch('/panel/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.detail || '登录失败，请检查用户名和密码');
-        if (data.access_token) localStorage.setItem('panel_token', data.access_token);
+        if (data.access_token) {
+          localStorage.setItem('panel_token', data.access_token);
+          localStorage.setItem('nekro_user_panel_token', data.access_token);
+          localStorage.setItem('token', data.access_token);
+          localStorage.setItem('auth-storage', JSON.stringify({ state: { token: data.access_token, userInfo: { username: body.username, userId: 1, perm_level: 2, perm_role: data.role === 'admin' ? 'Admin' : 'User' } }, version: 0 }));
+        }
         location.href = data.redirect || '/webui';
       } catch (e) {
         err.textContent = e.message || '登录失败，请稍后再试';

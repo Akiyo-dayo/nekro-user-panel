@@ -362,3 +362,15 @@ MIT
 - 标题使用“Nekro 控制台入口”
 - 描述使用“统一访问你的 Nekro Agent 控制台”
 - 技术实现细节，如默认实例、`/api/token`、fallback 策略，只保留在 README，不直接暴露给终端用户
+
+### 管理员进入实例的登录态同步
+
+管理员在 `/panel/admin` 点击“进入管理”时，面板会先写入 `admin_instance` Cookie，并同步 WebUI 所需的浏览器登录态：
+
+- `nekro_user_panel_token`
+- `panel_token`
+- `token`
+- `auth-storage`
+- `nekro_user_panel_username`
+
+这样进入 `/webui#/dashboard` 后，NA 前端不会因为缺少本地 token 而跳回登录页。
