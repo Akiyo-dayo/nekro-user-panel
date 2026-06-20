@@ -3,6 +3,7 @@ Nekro User Panel - 前端适配中间件
 处理前端登录流程的适配，确保面板认证与 NA 前端无缝衔接。
 """
 
+import json
 from typing import Optional
 
 
@@ -418,25 +419,71 @@ def get_full_inject_html() -> str:
 
 
 def get_admin_toolbar_script(instance_id: str, instance_comment: str) -> str:
-    """获取 admin 管理条脚本 - 显示当前管理的实例和返回按钮"""
+    """Return a light admin toolbar injected into proxied NA WebUI pages."""
+    instance_id_json = json.dumps(instance_id)
+    instance_comment_json = json.dumps(instance_comment)
     return f"""
 <script>
 (function() {{
     'use strict';
-    const INSTANCE_ID = '{instance_id}';
-    const INSTANCE_COMMENT = '{instance_comment}';
+    const INSTANCE_ID = {instance_id_json};
+    const INSTANCE_COMMENT = {instance_comment_json};
 
     function createToolbar() {{
+        if (document.getElementById('admin-toolbar')) return;
+        const style = document.createElement('style');
+        style.textContent = `
+          #admin-toolbar {{
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 99999;
+            width: min(960px, calc(100vw - 24px));
+            min-height: 42px;
+            border: 1px solid rgba(234,82,82,.16);
+            border-radius: 8px;
+            background: rgba(255,255,255,.92);
+            color: #182033;
+            box-shadow: 0 12px 30px rgba(55,64,88,.18);
+            backdrop-filter: blur(14px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 7px 8px 7px 12px;
+            font: 13px/1.35 Inter, "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+          }}
+          #admin-toolbar .panel-admin-meta {{ display: flex; align-items: center; gap: 9px; min-width: 0; }}
+          #admin-toolbar .panel-admin-mark {{
+            width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+            color: #ea5252; background: linear-gradient(135deg,#fff,#fff6fa);
+            border: 1px solid rgba(234,82,82,.18); font-weight: 900; font-size: 10px; flex: 0 0 auto;
+          }}
+          #admin-toolbar .panel-admin-copy {{ min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+          #admin-toolbar b {{ color: #ea5252; }}
+          #admin-toolbar small {{ color: #596174; }}
+          #admin-toolbar button {{
+            min-height: 30px; border: 1px solid rgba(234,82,82,.20); border-radius: 8px;
+            background: rgba(234,82,82,.09); color: #ba3439; cursor: pointer; font: inherit; font-weight: 760; padding: 0 11px;
+            transition: transform .18s cubic-bezier(.16,1,.3,1), box-shadow .18s cubic-bezier(.16,1,.3,1), background .18s cubic-bezier(.16,1,.3,1);
+          }}
+          #admin-toolbar button:hover {{ transform: translateY(-1px); background: rgba(234,82,82,.13); box-shadow: 0 8px 18px rgba(234,82,82,.14); }}
+          @media (max-width: 620px) {{ #admin-toolbar {{ top: 6px; align-items: stretch; flex-direction: column; }} #admin-toolbar button {{ width: 100%; }} }}
+          @media (prefers-reduced-motion: reduce) {{ #admin-toolbar, #admin-toolbar * {{ transition-duration: .01ms !important; animation-duration: .01ms !important; }} }}
+        `;
+        document.head.appendChild(style);
         const bar = document.createElement('div');
         bar.id = 'admin-toolbar';
         bar.innerHTML = `
-            <span style="margin-right:12px;">&#x1F6E0;&#xFE0F; <b>Admin</b> | &#x5B9E;&#x4F8B;: <b>${{INSTANCE_ID}}</b> (${{INSTANCE_COMMENT}})</span>
-            <button onclick="location.href='/panel/admin'" style="padding:4px 12px;border:1px solid rgba(255,255,255,0.3);border-radius:4px;background:rgba(255,255,255,0.1);color:#fff;cursor:pointer;font-size:12px;">&#x2190; &#x8FD4;&#x56DE;&#x7BA1;&#x7406;&#x540E;&#x53F0;</button>
+            <div class="panel-admin-meta">
+              <span class="panel-admin-mark">&gt;NA</span>
+              <span class="panel-admin-copy"><b>Admin</b> 正在管理 <b>${{INSTANCE_ID}}</b> <small>${{INSTANCE_COMMENT}}</small></span>
+            </div>
+            <button type="button" onclick="location.href='/panel/admin'">返回管理后台</button>
         `;
-        bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(90deg,#7c83fd,#6c63ff);color:#fff;padding:6px 16px;font-size:13px;display:flex;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
         document.body.prepend(bar);
-        // 给 body 加 padding-top 避免遮挡内容
-        document.body.style.paddingTop = '36px';
+        document.body.style.paddingTop = '58px';
     }}
 
     if (document.readyState === 'loading') {{
@@ -447,7 +494,6 @@ def get_admin_toolbar_script(instance_id: str, instance_comment: str) -> str:
 }})();
 </script>
 """
-
 
 def get_nav_filter_script() -> str:
     """导航过滤脚本"""
@@ -632,4 +678,3 @@ def get_nav_filter_script() -> str:
 })();
 </script>
 """
-

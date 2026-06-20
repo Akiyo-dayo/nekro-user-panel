@@ -641,85 +641,23 @@ def render_panel_error_page(
     secondary_label: str = "打开管理后台",
     logout_action: bool = False,
 ) -> HTMLResponse:
-    """Render a polished standalone panel error page."""
-    import html
-    safe_title = html.escape(title)
-    safe_message = html.escape(message)
-    safe_detail = html.escape(detail)
-    safe_primary_href = html.escape(primary_href, quote=True)
-    safe_primary_label = html.escape(primary_label)
-    safe_secondary_href = html.escape(secondary_href, quote=True) if secondary_href else ""
-    safe_secondary_label = html.escape(secondary_label) if secondary_label else ""
-    secondary_action = f'<a class="secondary" href="{safe_secondary_href}">{safe_secondary_label}</a>' if safe_secondary_href and safe_secondary_label else ""
-    if logout_action:
-        primary_action = f'<button class="primary" type="button" onclick="returnToLogin()">{safe_primary_label}</button>'
-    else:
-        primary_action = f'<a class="primary" href="{safe_primary_href}">{safe_primary_label}</a>'
-    page = f"""<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="color-scheme" content="dark" />
-  <title>{safe_title} · Nekro User Panel</title>
-  <style>
-    :root {{
-      --bg:#0b0d12; --surface:#11151d; --surface-2:#151a24; --field:#0c1017;
-      --line:#242b38; --line-strong:#343d4f; --text:#eef3fb; --muted:#9aa6b7; --faint:#6e7a8c;
-      --accent:#8fb8ff; --accent-hover:#a8c8ff; --accent-text:#07101f; --danger:#ff8d9b; --warning:#ffd08a; --success:#85e1b4;
-      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
-    }}
-    *{{box-sizing:border-box}} html,body{{min-height:100%}}
-    body{{margin:0;min-height:100dvh;color:var(--text);background:radial-gradient(circle at 14% 12%,rgba(255,208,138,.13),transparent 28rem),radial-gradient(circle at 88% 86%,rgba(143,184,255,.10),transparent 28rem),var(--bg);display:grid;place-items:center;padding:28px}}
-    body:before{{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.032) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.026) 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(to bottom,black,transparent 80%)}}
-    .shell{{position:relative;z-index:1;width:min(880px,100%);display:grid;grid-template-columns:280px minmax(0,1fr);border:1px solid var(--line);background:rgba(17,21,29,.9);box-shadow:0 24px 80px rgba(0,0,0,.42)}}
-    .status{{border-right:1px solid var(--line);padding:34px;background:linear-gradient(180deg,rgba(255,255,255,.03),transparent);display:flex;flex-direction:column;justify-content:space-between;gap:42px}}
-    .brand{{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px}}.logo{{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--warning);color:#1d1203;font-weight:850;letter-spacing:-.04em}}
-    .code{{font-size:54px;line-height:.95;letter-spacing:-.05em;font-weight:850;color:var(--warning);font-variant-numeric:tabular-nums}}
-    .mini{{margin-top:10px;color:var(--faint);font-size:13px;line-height:1.55}}
-    .content{{padding:42px;display:flex;flex-direction:column;justify-content:center}}
-    h1{{margin:0;font-size:32px;line-height:1.12;letter-spacing:-.03em;text-wrap:balance}}
-    .msg{{margin:14px 0 0;color:var(--muted);line-height:1.75;font-size:15px;max-width:62ch;text-wrap:pretty}}
-    .detail{{margin-top:22px;border:1px solid var(--line);background:var(--field);border-radius:12px;padding:13px 14px;color:#c5cfdd;font-size:13px;line-height:1.6;word-break:break-all;font-variant-numeric:tabular-nums}}
-    .actions{{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}}
-    a,button{{min-height:40px;display:inline-flex;align-items:center;justify-content:center;padding:0 14px;border-radius:10px;text-decoration:none;font-size:13px;font-weight:750;transition:background .18s ease,border-color .18s ease,transform .18s ease;border:0;cursor:pointer;font-family:inherit}}
-    a:active,button:active{{transform:translateY(1px)}}.primary{{background:var(--accent);color:var(--accent-text)}}.primary:hover{{background:var(--accent-hover)}}.secondary{{border:1px solid var(--line-strong);color:var(--text);background:var(--surface-2)}}.secondary:hover{{border-color:var(--accent)}}
-    .hint{{margin-top:24px;padding-top:18px;border-top:1px solid var(--line);color:var(--faint);font-size:12px;line-height:1.65}}
-    @media(max-width:760px){{body{{padding:18px;place-items:start center}}.shell{{grid-template-columns:1fr}}.status{{border-right:0;border-bottom:1px solid var(--line);padding:26px}}.content{{padding:28px}}.code{{font-size:42px}}h1{{font-size:26px}}}}
-    @media(prefers-reduced-motion:reduce){{*,*:before,*:after{{transition-duration:.01ms!important;animation-duration:.01ms!important}}}}
-  </style>
-</head>
-<body>
-  <main class="shell">
-    <aside class="status">
-      <div class="brand"><div class="logo">N</div><span>Nekro User Panel</span></div>
-      <div><div class="code">{status_code}</div><div class="mini">当前实例暂不可达</div></div>
-    </aside>
-    <section class="content">
-      <h1>{safe_title}</h1>
-      <p class="msg">{safe_message}</p>
-      {f'<div class="detail">{safe_detail}</div>' if safe_detail else ''}
-      <div class="actions">
-        {primary_action}
-        {secondary_action}
-      </div>
-      <div class="hint">如果问题持续存在，请联系管理员检查实例状态或后端端口。</div>
-    </section>
-  </main>
-  <script>
-    async function returnToLogin() {{
-      try {{ await fetch('/panel/logout', {{ method: 'POST' }}); }} catch(e) {{}}
-      try {{
-        ['nekro_user_panel_token','nekro_user_panel_username','nekro_user_panel_userinfo','panel_token','token','auth-storage'].forEach(k => localStorage.removeItem(k));
-        ['panel_token','admin_instance'].forEach(k => {{ document.cookie = k + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'; }});
-      }} catch(e) {{}}
-      window.location.href = '/webui';
-    }}
-  </script>
-</body>
-</html>"""
-    return HTMLResponse(content=page, status_code=status_code)
+    """Render the shared light Nekro User Panel error shell."""
+    from admin_page import get_error_html
 
+    return HTMLResponse(
+        content=get_error_html(
+            title=title,
+            message=message,
+            detail=detail,
+            status_code=status_code,
+            primary_href=primary_href,
+            primary_label=primary_label,
+            secondary_href=secondary_href,
+            secondary_label=secondary_label,
+            logout_action=logout_action,
+        ),
+        status_code=status_code,
+    )
 
 @app.get("/webui", include_in_schema=False)
 async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get_optional_panel_user_lenient)):
@@ -741,206 +679,11 @@ async def webui_index(request: Request, _user: Optional[PanelUser] = Depends(get
     # 如果第一个实例离线，所有用户访问 /webui 都会 500。
     # 这里返回面板自带的轻量登录页，登录成功后再按 JWT 绑定实例加载对应 NA。
     if not _user:
-        login_html = """<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="color-scheme" content="dark" />
-  <title>Nekro User Panel</title>
-  <style>
-    :root {
-      --bg: #0b0d12;
-      --surface: #11151d;
-      --surface-2: #151a24;
-      --field: #0c1017;
-      --line: #242b38;
-      --line-strong: #333c4d;
-      --text: #eef3fb;
-      --muted: #9aa6b7;
-      --faint: #6e7a8c;
-      --accent: #8fb8ff;
-      --accent-hover: #a8c8ff;
-      --accent-text: #07101f;
-      --danger: #ff8d9b;
-      --success: #85e1b4;
-      --warning: #ffd08a;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
-    }
-    * { box-sizing: border-box; }
-    html, body { min-height: 100%; }
-    body {
-      margin: 0;
-      min-height: 100dvh;
-      color: var(--text);
-      background:
-        radial-gradient(circle at 14% 10%, rgba(143,184,255,.12), transparent 28rem),
-        radial-gradient(circle at 86% 84%, rgba(133,225,180,.07), transparent 26rem),
-        var(--bg);
-      display: grid;
-      place-items: center;
-      padding: 28px;
-    }
-    body::before {
-      content: "";
-      position: fixed; inset: 0;
-      pointer-events: none;
-      background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
-      background-size: 48px 48px;
-      mask-image: linear-gradient(to bottom, black, transparent 78%);
-    }
-    .wrap {
-      position: relative;
-      z-index: 1;
-      width: min(1020px, 100%);
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 420px;
-      border: 1px solid var(--line);
-      background: color-mix(in srgb, var(--surface) 92%, transparent);
-      box-shadow: 0 22px 70px rgba(0,0,0,.38);
-      min-height: 600px;
-    }
-    .context {
-      padding: 44px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      border-right: 1px solid var(--line);
-      background: linear-gradient(180deg, rgba(255,255,255,.025), transparent);
-    }
-    .topline { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; }
-    .logo { width: 34px; height: 34px; display:grid; place-items:center; background: var(--accent); color: var(--accent-text); font-weight: 800; border-radius: 10px; letter-spacing: -.04em; }
-    h1 { margin: 0; max-width: 12ch; font-size: 52px; line-height: .98; letter-spacing: -.035em; text-wrap: balance; }
-    .copy { max-width: 58ch; margin: 20px 0 0; color: var(--muted); line-height: 1.72; font-size: 15px; text-wrap: pretty; }
-    .rule-list { display: grid; gap: 12px; margin-top: 34px; padding: 0; list-style: none; max-width: 620px; }
-    .rule-list li {
-      display: grid; grid-template-columns: 10px 1fr; gap: 12px; align-items: start;
-      color: #c9d2df; font-size: 14px; line-height: 1.55;
-    }
-    .dot { width: 7px; height: 7px; margin-top: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 16px rgba(133,225,180,.5); }
-    .meta { display:flex; flex-wrap:wrap; gap: 8px; margin-top: 40px; }
-    .meta span { color: var(--faint); border: 1px solid var(--line); padding: 7px 9px; border-radius: 9px; font-size: 12px; font-variant-numeric: tabular-nums; background: rgba(255,255,255,.018); }
-    .panel { padding: 44px 38px; display:flex; flex-direction:column; justify-content:center; background: var(--surface-2); }
-    .panel h2 { margin: 0; font-size: 24px; line-height: 1.18; letter-spacing: -.02em; }
-    .panel p { margin: 10px 0 28px; color: var(--muted); line-height: 1.6; font-size: 14px; }
-    label { display:block; margin: 18px 0 8px; color: #dbe3ef; font-size: 13px; font-weight: 650; }
-    input {
-      width: 100%;
-      min-height: 44px;
-      border-radius: 10px;
-      border: 1px solid var(--line-strong);
-      background: var(--field);
-      color: var(--text);
-      padding: 11px 12px;
-      font-size: 15px;
-      outline: none;
-      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
-    }
-    input::placeholder { color: #8792a3; opacity: 1; }
-    input:hover { border-color: #455066; }
-    input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(143,184,255,.16); background: #0a0e15; }
-    button {
-      width: 100%;
-      min-height: 44px;
-      margin-top: 22px;
-      border: 0;
-      border-radius: 10px;
-      background: var(--accent);
-      color: var(--accent-text);
-      font-weight: 750;
-      font-size: 14px;
-      cursor: pointer;
-      transition: background .18s ease, transform .18s ease, box-shadow .18s ease;
-    }
-    button:hover { background: var(--accent-hover); box-shadow: 0 10px 24px rgba(143,184,255,.18); }
-    button:active { transform: translateY(1px); }
-    button:disabled { opacity: .68; cursor: wait; box-shadow: none; }
-    .err { min-height: 21px; margin-top: 13px; color: var(--danger); font-size: 13px; line-height: 1.5; }
-    .note {
-      margin-top: 24px;
-      padding-top: 18px;
-      border-top: 1px solid var(--line);
-      color: var(--faint);
-      font-size: 12px;
-      line-height: 1.65;
-    }
-    code { color: #b9c8df; background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 6px; padding: 1px 5px; }
-    @media (max-width: 860px) {
-      body { padding: 18px; place-items: start center; }
-      .wrap { grid-template-columns: 1fr; min-height: auto; }
-      .context { padding: 30px; border-right: 0; border-bottom: 1px solid var(--line); }
-      .panel { padding: 30px; }
-      h1 { font-size: 40px; max-width: 14ch; }
-      .meta { margin-top: 28px; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; scroll-behavior: auto !important; }
-    }
-  </style>
-</head>
-<body>
-  <main class="wrap">
-    <section class="context" aria-label="面板说明">
-      <div>
-        <div class="topline"><div class="logo" aria-hidden="true">N</div><span>Nekro User Panel</span></div>
-        <div style="margin-top:72px">
-          <h1>Nekro 控制台入口</h1>
-          <p class="copy">统一访问你的 Nekro Agent 控制台。登录后会自动进入分配给你的工作实例。</p>
-          <ul class="rule-list">
-            <li><span class="dot"></span><span>独立面板认证，避免实例状态影响登录体验。</span></li>
-            <li><span class="dot"></span><span>每个账号仅访问自己的工作实例。</span></li>
-            <li><span class="dot"></span><span>管理员可在后台切换和维护全部实例。</span></li>
-          </ul>
-        </div>
-      </div>
-      <div class="meta"><span>route scoped</span><span>no default instance</span><span>status-aware errors</span></div>
-    </section>
-    <form class="panel" id="loginForm" autocomplete="on">
-      <h2>登录</h2>
-      <p>输入面板账号以继续访问控制台。</p>
-      <label for="username">用户名</label>
-      <input id="username" name="username" autocomplete="username" placeholder="例如 GBNA1" required autofocus />
-      <label for="password">密码</label>
-      <input id="password" name="password" type="password" autocomplete="current-password" placeholder="输入面板密码" required />
-      <button type="submit">登录</button>
-      <div class="err" id="err" role="status" aria-live="polite"></div>
-      <div class="note">如果登录后提示实例不可用，说明你绑定的 NA 后端离线。其他用户不受影响。</div>
-    </form>
-  </main>
-  <script>
-    const form = document.getElementById('loginForm');
-    form.addEventListener('submit', async (ev) => {
-      ev.preventDefault();
-      const btn = form.querySelector('button');
-      const err = document.getElementById('err');
-      btn.disabled = true;
-      btn.textContent = '正在验证';
-      err.textContent = '';
-      const body = { username: form.username.value.trim(), password: form.password.value };
-      try {
-        const res = await fetch('/panel/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.detail || '登录失败，请检查用户名和密码');
-        if (data.access_token) {
-          localStorage.setItem('panel_token', data.access_token);
-          localStorage.setItem('nekro_user_panel_token', data.access_token);
-          localStorage.setItem('token', data.access_token);
-          localStorage.setItem('auth-storage', JSON.stringify({ state: { token: data.access_token, userInfo: { username: body.username, userId: 1, perm_level: 2, perm_role: data.role === 'admin' ? 'Admin' : 'User' } }, version: 0 }));
-        }
-        location.href = data.redirect || '/webui';
-      } catch (e) {
-        err.textContent = e.message || '登录失败，请稍后再试';
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '登录';
-      }
-    });
-  </script>
-</body>
-</html>"""
-        return HTMLResponse(content=login_html)
+        from admin_page import get_login_html
 
-    # 确定目标实例
+        return HTMLResponse(content=get_login_html())
+
+    # Determine the target instance.
     instance = None
     if is_admin_user:
         # admin 用户必须显式选择实例，不再默认取第一个实例。
