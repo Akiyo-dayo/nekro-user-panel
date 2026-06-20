@@ -6,6 +6,7 @@ services:
     network_mode: host
     volumes:
       - ./instances.json:/app/instances.json
+      - ./nodes.json:/app/nodes.json
       - ./filters.py:/app/filters.py
       - ./route_whitelist.py:/app/route_whitelist.py
       - ./proxy.py:/app/proxy.py
@@ -21,3 +22,4 @@ services:
       - ADMIN_PASSWORD=Wdx030014
       - PANEL_JWT_SECRET=nekro-user-panel-secret-change-me
       - PANEL_JWT_EXPIRE_HOURS=24
+      - NODES_FILE=/app/nodes.json

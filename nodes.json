@@ -1,0 +1,29 @@
+[
+  {
+    "id": "denia",
+    "name": "Denia headquarters",
+    "cluster_id": "denia",
+    "cluster_name": "Denia",
+    "role": "headquarters",
+    "panel_base_url": "http://127.0.0.1:9054",
+    "ssh_host": "xa.akiyo.fun",
+    "ssh_port": 24022,
+    "ssh_user": "F1yCar",
+    "status": "online",
+    "comment": "Headquarters panel on Denia."
+  },
+  {
+    "id": "suzhou",
+    "name": "Suzhou",
+    "cluster_id": "suzhou",
+    "cluster_name": "Suzhou",
+    "role": "node",
+    "panel_base_url": "",
+    "ncqq_base_url": "",
+    "ssh_host": "one.akiyo.fun",
+    "ssh_port": 24022,
+    "ssh_user": "f1ycar",
+    "status": "partial",
+    "comment": "SSH verified. Local ncqq-manager and NA ports are healthy, but Denia cannot reach one.akiyo.fun:8000/8061/8067/9054 yet. No nekro_user_panel service was detected on Suzhou during setup."
+  }
+]

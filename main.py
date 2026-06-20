@@ -25,7 +25,21 @@ from auth import (
     get_optional_panel_user_lenient,
     is_admin,
 )
-from config import PANEL_HOST, PANEL_PORT, PANEL_JWT_EXPIRE_HOURS, INSTANCES, INSTANCES_FILE, InstanceConfig, get_instance, reload_instances
+from config import (
+    PANEL_HOST,
+    PANEL_PORT,
+    PANEL_JWT_EXPIRE_HOURS,
+    INSTANCES,
+    INSTANCES_FILE,
+    NODES,
+    NODES_FILE,
+    InstanceConfig,
+    NodeConfig,
+    get_instance,
+    get_node,
+    reload_instances,
+    reload_nodes,
+)
 from filters import filter_navigation_config
 from frontend_inject import get_full_inject_html
 from proxy import close_http_client, proxy_request
@@ -132,6 +146,158 @@ async def reload_instances_endpoint(user: PanelUser = Depends(get_current_panel_
 
 
 # ============ 管理员 API ============
+
+
+@app.get("/panel/admin/nodes", tags=["Panel Admin"])
+async def list_nodes(user: PanelUser = Depends(get_current_panel_user)):
+    """获取所有节点列表（管理员专用）"""
+    if not is_admin(user):
+        return JSONResponse(status_code=403, content={"detail": "仅管理员可操作"})
+    return [_node_summary(node) for node in NODES.values()]
+
+
+@app.get("/panel/admin/nodes/{node_id}", tags=["Panel Admin"])
+async def get_node_detail(node_id: str, user: PanelUser = Depends(get_current_panel_user)):
+    """获取单个节点详情"""
+    if not is_admin(user):
+        return JSONResponse(status_code=403, content={"detail": "仅管理员可操作"})
+    node = get_node(node_id)
+    if not node:
+        return JSONResponse(status_code=404, content={"detail": "节点不存在"})
+    return node.model_dump()
+
+
+@app.post("/panel/admin/nodes", tags=["Panel Admin"])
+async def create_node(data: dict, user: PanelUser = Depends(get_current_panel_user)):
+    """创建新节点"""
+    if not is_admin(user):
+        return JSONResponse(status_code=403, content={"detail": "仅管理员可操作"})
+    return _save_node(data, create=True)
+
+
+@app.put("/panel/admin/nodes/{node_id}", tags=["Panel Admin"])
+async def update_node(node_id: str, data: dict, user: PanelUser = Depends(get_current_panel_user)):
+    """更新节点配置，支持修改节点 ID"""
+    if not is_admin(user):
+        return JSONResponse(status_code=403, content={"detail": "仅管理员可操作"})
+    new_id = data.get("id", node_id)
+    data["_old_id"] = node_id
+    data["id"] = new_id
+    return _save_node(data, create=False)
+
+
+@app.delete("/panel/admin/nodes/{node_id}", tags=["Panel Admin"])
+async def delete_node(node_id: str, user: PanelUser = Depends(get_current_panel_user)):
+    """删除节点。仍被实例引用的节点不可删除。"""
+    if not is_admin(user):
+        return JSONResponse(status_code=403, content={"detail": "仅管理员可操作"})
+    if any(inst.node_id == node_id for inst in INSTANCES.values()):
+        return JSONResponse(status_code=409, content={"detail": f"节点 {node_id} 仍有实例引用，不能删除"})
+
+    import json
+    from pathlib import Path
+
+    path = Path(NODES_FILE)
+    nodes_list = _read_nodes_list(path)
+    nodes_list = [n for n in nodes_list if n.get("id") != node_id]
+    _write_json_list(path, nodes_list)
+    reload_nodes()
+    return {"status": "ok", "message": f"节点 {node_id} 已删除"}
+
+
+def _node_summary(node: NodeConfig) -> dict:
+    """Return the safe admin-list shape for a node."""
+    owned_instances = [inst.id for inst in INSTANCES.values() if inst.node_id == node.id]
+    return {
+        "id": node.id,
+        "name": node.name,
+        "display_name": node.display_name,
+        "cluster_id": node.cluster_id,
+        "cluster_name": node.cluster_name,
+        "role": node.role,
+        "panel_base_url": node.panel_base_url,
+        "ncqq_base_url": node.ncqq_base_url,
+        "ssh_host": node.ssh_host,
+        "ssh_port": node.ssh_port,
+        "ssh_user": node.ssh_user,
+        "status": node.status,
+        "comment": node.comment,
+        "route_label": node.route_label,
+        "instance_count": len(owned_instances),
+        "instances": owned_instances,
+    }
+
+
+def _read_nodes_list(path: Path) -> list:
+    """Read nodes.json, creating the file from current in-memory nodes if missing."""
+    import json
+
+    if not path.exists():
+        return [node.model_dump() for node in NODES.values()]
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _write_json_list(path: Path, data: list) -> None:
+    """Persist a JSON list with stable formatting."""
+    import json
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def _save_node(data: dict, create: bool):
+    """保存节点到 JSON 文件"""
+    from pathlib import Path
+
+    old_id = data.pop("_old_id", None)
+    if not data.get("id"):
+        return JSONResponse(status_code=400, content={"detail": "缺少必填字段: id"})
+
+    data["id"] = str(data["id"]).strip()
+    data["name"] = str(data.get("name") or data["id"]).strip()
+    data["cluster_id"] = str(data.get("cluster_id") or "default").strip()
+    data["cluster_name"] = str(data.get("cluster_name") or "").strip()
+    data["role"] = str(data.get("role") or "node").strip()
+    data["panel_base_url"] = str(data.get("panel_base_url") or "").strip().rstrip("/") or None
+    data["ncqq_base_url"] = str(data.get("ncqq_base_url") or "").strip().rstrip("/") or None
+    data["ssh_host"] = str(data.get("ssh_host") or "").strip()
+    data["ssh_user"] = str(data.get("ssh_user") or "").strip()
+    data["status"] = str(data.get("status") or "unknown").strip()
+    data["comment"] = str(data.get("comment") or "").strip()
+    if data.get("ssh_port") not in (None, ""):
+        try:
+            data["ssh_port"] = int(data["ssh_port"])
+        except (TypeError, ValueError):
+            return JSONResponse(status_code=400, content={"detail": "ssh_port 必须是数字"})
+    else:
+        data["ssh_port"] = None
+
+    path = Path(NODES_FILE)
+    nodes_list = _read_nodes_list(path)
+
+    if create:
+        if any(n.get("id") == data["id"] for n in nodes_list):
+            return JSONResponse(status_code=409, content={"detail": f"节点 {data['id']} 已存在"})
+        nodes_list.append(data)
+    else:
+        lookup_id = old_id or data["id"]
+        found = False
+        for i, node in enumerate(nodes_list):
+            if node.get("id") == lookup_id:
+                if old_id and data["id"] != old_id:
+                    if any(n.get("id") == data["id"] for n in nodes_list if n.get("id") != old_id):
+                        return JSONResponse(status_code=409, content={"detail": f"节点 {data['id']} 已存在"})
+                nodes_list[i] = data
+                found = True
+                break
+        if not found:
+            return JSONResponse(status_code=404, content={"detail": f"节点 {lookup_id} 不存在"})
+
+    _write_json_list(path, nodes_list)
+    reload_nodes()
+    return {"status": "ok", "message": f"节点 {data['id']} 已{'创建' if create else '更新'}"}
 
 
 @app.get("/panel/admin/instances", tags=["Panel Admin"])

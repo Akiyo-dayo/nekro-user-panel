@@ -59,9 +59,36 @@ class InstanceConfig(BaseModel):
         return list(dict.fromkeys(str(name) for name in names if name))
 
 
+class NodeConfig(BaseModel):
+    """A server node that can own one or more NA instances."""
+
+    id: str
+    name: str = ""
+    cluster_id: str = "default"
+    cluster_name: str = ""
+    role: str = "node"
+    panel_base_url: Optional[str] = None
+    ncqq_base_url: Optional[str] = None
+    ssh_host: str = ""
+    ssh_port: Optional[int] = None
+    ssh_user: str = ""
+    status: str = "unknown"
+    comment: str = ""
+
+    @property
+    def display_name(self) -> str:
+        return self.name or self.id
+
+    @property
+    def route_label(self) -> str:
+        cluster = self.cluster_name or self.cluster_id
+        return f"{cluster}/{self.display_name}"
+
+
 # ============ 加载实例配置 ============
 
 INSTANCES_FILE = os.getenv("INSTANCES_FILE", str(Path(__file__).parent / "instances.json"))
+NODES_FILE = os.getenv("NODES_FILE", str(Path(__file__).parent / "nodes.json"))
 
 
 def load_instances() -> Dict[str, InstanceConfig]:
@@ -80,8 +107,46 @@ def load_instances() -> Dict[str, InstanceConfig]:
     return instances
 
 
+# ============ 加载节点配置 ============
+
+
+def _default_nodes() -> List[dict]:
+    return [
+        {
+            "id": "denia",
+            "name": "Denia headquarters",
+            "cluster_id": "denia",
+            "cluster_name": "Denia",
+            "role": "headquarters",
+            "panel_base_url": "http://127.0.0.1:9054",
+            "ssh_host": "xa.akiyo.fun",
+            "ssh_port": 24022,
+            "ssh_user": "F1yCar",
+            "status": "online",
+            "comment": "Headquarters panel on Denia.",
+        }
+    ]
+
+
+def load_nodes() -> Dict[str, NodeConfig]:
+    """从 JSON 文件加载节点配置；文件缺失时返回 Denia 总部节点。"""
+    path = Path(NODES_FILE)
+    if path.exists():
+        with open(path, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+    else:
+        raw = _default_nodes()
+
+    nodes = {}
+    for item in raw:
+        node = NodeConfig(**item)
+        nodes[node.id] = node
+    return nodes
+
+
 # 全局实例注册表（启动时加载，可热重载）
 INSTANCES: Dict[str, InstanceConfig] = load_instances()
+NODES: Dict[str, NodeConfig] = load_nodes()
 
 
 def reload_instances():
@@ -92,6 +157,14 @@ def reload_instances():
     INSTANCES.update(new_instances)
     # 通知代理层清除缓存的 HTTP 客户端（端口可能已变更）
     _notify_proxy_reload()
+
+
+def reload_nodes():
+    """热重载节点配置。"""
+    global NODES
+    new_nodes = load_nodes()
+    NODES.clear()
+    NODES.update(new_nodes)
 
 
 def _notify_proxy_reload():
@@ -106,6 +179,11 @@ def _notify_proxy_reload():
 def get_instance(user_id: str) -> Optional[InstanceConfig]:
     """根据用户 ID 获取对应的实例配置"""
     return INSTANCES.get(user_id)
+
+
+def get_node(node_id: str) -> Optional[NodeConfig]:
+    """根据节点 ID 获取节点配置"""
+    return NODES.get(node_id)
 
 
 def find_instance_by_login(username: str) -> Optional[InstanceConfig]:
