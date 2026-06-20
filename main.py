@@ -25,7 +25,7 @@ from auth import (
     get_optional_panel_user_lenient,
     is_admin,
 )
-from config import PANEL_HOST, PANEL_PORT, PANEL_JWT_EXPIRE_HOURS, INSTANCES, INSTANCES_FILE, get_instance, reload_instances
+from config import PANEL_HOST, PANEL_PORT, PANEL_JWT_EXPIRE_HOURS, INSTANCES, INSTANCES_FILE, InstanceConfig, get_instance, reload_instances
 from filters import filter_navigation_config
 from frontend_inject import get_full_inject_html
 from proxy import close_http_client, proxy_request
@@ -107,7 +107,16 @@ async def get_nav_config(_user: PanelUser = Depends(get_current_panel_user)):
 @app.get("/panel/user-info", tags=["Panel Auth"])
 async def get_panel_user_info(user: PanelUser = Depends(get_current_panel_user)):
     """获取当前面板用户信息"""
-    return {"username": user.username, "instance_id": user.instance_id, "role": "user"}
+    inst = user.instance
+    return {
+        "username": user.username,
+        "instance_id": user.instance_id,
+        "role": "admin" if is_admin(user) else "user",
+        "cluster_id": inst.cluster_id if inst else None,
+        "cluster_name": inst.cluster_name if inst else None,
+        "node_id": inst.node_id if inst else None,
+        "node_name": inst.node_name if inst else None,
+    }
 
 
 @app.post("/panel/reload-instances", tags=["Panel Admin"])
@@ -130,17 +139,7 @@ async def list_instances(user: PanelUser = Depends(get_current_panel_user)):
     """获取所有实例列表（管理员专用）"""
     if not is_admin(user):
         return JSONResponse(status_code=403, content={"detail": "仅管理员可操作"})
-    return [
-        {
-            "id": inst.id,
-            "na_port": inst.na_port,
-            "na_host": inst.na_host,
-            "na_admin_user": inst.na_admin_user,
-            "comment": inst.comment,
-            "allowed_model_groups": inst.allowed_model_groups,
-        }
-        for inst in INSTANCES.values()
-    ]
+    return [_instance_summary(inst) for inst in INSTANCES.values()]
 
 
 @app.get("/panel/admin/instances/{instance_id}", tags=["Panel Admin"])
@@ -152,6 +151,27 @@ async def get_instance_detail(instance_id: str, user: PanelUser = Depends(get_cu
     if not inst:
         return JSONResponse(status_code=404, content={"detail": "实例不存在"})
     return inst.model_dump()
+
+
+def _instance_summary(inst: InstanceConfig) -> dict:
+    """Return the safe admin-list shape for an instance."""
+    return {
+        "id": inst.id,
+        "na_port": inst.na_port,
+        "na_host": inst.na_host,
+        "na_scheme": inst.na_scheme,
+        "na_base_url": inst.na_base_url,
+        "na_backend_url": inst.na_backend_url,
+        "na_admin_user": inst.na_admin_user,
+        "cluster_id": inst.cluster_id,
+        "cluster_name": inst.cluster_name,
+        "node_id": inst.node_id,
+        "node_name": inst.node_name,
+        "login_aliases": inst.login_aliases,
+        "route_label": inst.route_label,
+        "comment": inst.comment,
+        "allowed_model_groups": inst.allowed_model_groups,
+    }
 
 
 @app.post("/panel/admin/instances", tags=["Panel Admin"])
@@ -204,10 +224,38 @@ def _save_instance(data: dict, create: bool):
     old_id = data.pop("_old_id", None)
 
     # 验证必填字段
-    required = ["id", "panel_password", "na_port", "na_admin_pass"]
+    required = ["id", "panel_password", "na_admin_pass"]
     for field in required:
         if field not in data or not data[field]:
             return JSONResponse(status_code=400, content={"detail": f"缺少必填字段: {field}"})
+    if not data.get("na_base_url") and not data.get("na_port"):
+        return JSONResponse(status_code=400, content={"detail": "缺少必填字段: na_port 或 na_base_url"})
+
+    data["id"] = str(data["id"]).strip()
+    data["panel_password"] = str(data["panel_password"])
+    data["na_admin_user"] = str(data.get("na_admin_user") or "admin").strip()
+    data["na_admin_pass"] = str(data["na_admin_pass"])
+    data["na_host"] = str(data.get("na_host") or "127.0.0.1").strip()
+    data["na_scheme"] = str(data.get("na_scheme") or "http").strip().lower()
+    data["cluster_id"] = str(data.get("cluster_id") or "default").strip()
+    data["cluster_name"] = str(data.get("cluster_name") or "").strip()
+    data["node_id"] = str(data.get("node_id") or "local").strip()
+    data["node_name"] = str(data.get("node_name") or "").strip()
+    data["comment"] = str(data.get("comment") or "").strip()
+    data["allowed_model_groups"] = data.get("allowed_model_groups") or []
+    aliases = data.get("login_aliases") or []
+    if isinstance(aliases, str):
+        aliases = [x.strip() for x in aliases.split(",") if x.strip()]
+    data["login_aliases"] = aliases
+    if data.get("na_base_url"):
+        data["na_base_url"] = str(data["na_base_url"]).strip().rstrip("/")
+    else:
+        data["na_base_url"] = None
+    if data.get("na_port") not in (None, ""):
+        try:
+            data["na_port"] = int(data["na_port"])
+        except (TypeError, ValueError):
+            return JSONResponse(status_code=400, content={"detail": "na_port 必须是数字"})
 
     path = Path(INSTANCES_FILE)
     with open(path, "r", encoding="utf-8") as f:
@@ -287,8 +335,18 @@ async def get_current_instance(request: Request, user: PanelUser = Depends(get_c
     instance_id = urllib.parse.unquote(request.cookies.get("admin_instance", ""))
     inst = get_instance(instance_id) if instance_id else None
     if inst:
-        return {"instance_id": inst.id, "comment": inst.comment, "na_port": inst.na_port}
-    return {"instance_id": None, "comment": None, "na_port": None}
+        return {
+            "instance_id": inst.id,
+            "comment": inst.comment,
+            "na_port": inst.na_port,
+            "na_backend_url": inst.na_backend_url,
+            "cluster_id": inst.cluster_id,
+            "cluster_name": inst.cluster_name,
+            "node_id": inst.node_id,
+            "node_name": inst.node_name,
+            "route_label": inst.route_label,
+        }
+    return {"instance_id": None, "comment": None, "na_port": None, "na_backend_url": None}
 
 
 # ============ API 代理 ============
@@ -730,4 +788,3 @@ if __name__ == "__main__":
         reload=False,
         log_level="info",
     )
-

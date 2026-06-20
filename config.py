@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # ============ 实例配置模型 ============
@@ -18,16 +18,45 @@ class InstanceConfig(BaseModel):
     """单个 NA 实例的配置"""
     id: str                  # 用户登录名（唯一标识）
     panel_password: str      # 用户面板登录密码
-    na_port: int             # NA 实例端口
+    na_port: Optional[int] = None  # NA 实例端口；na_base_url 存在时可省略
     na_admin_user: str = "admin"  # NA 管理员用户名
     na_admin_pass: str       # NA 管理员密码
     na_host: str = "127.0.0.1"   # NA 实例主机（默认本机）
-    allowed_model_groups: List[str] = []  # 允许管理的模型组
+    na_scheme: str = "http"  # NA 实例协议
+    na_base_url: Optional[str] = None  # 显式后端地址，优先级高于 na_host/na_port
+    cluster_id: str = "default"  # 集群 ID，用于多集群归类
+    cluster_name: str = ""    # 集群展示名称
+    node_id: str = "local"    # 节点 ID
+    node_name: str = ""       # 节点展示名称
+    login_aliases: List[str] = Field(default_factory=list)  # 可选登录别名
+    allowed_model_groups: List[str] = Field(default_factory=list)  # 允许管理的模型组
     comment: str = ""        # 备注
 
     @property
     def na_backend_url(self) -> str:
-        return f"http://{self.na_host}:{self.na_port}"
+        if self.na_base_url:
+            return self.na_base_url.rstrip("/")
+        if self.na_port is None:
+            raise ValueError(f"实例 {self.id} 缺少 na_port 或 na_base_url")
+        return f"{self.na_scheme}://{self.na_host}:{self.na_port}"
+
+    @property
+    def route_label(self) -> str:
+        node = self.node_name or self.node_id
+        cluster = self.cluster_name or self.cluster_id
+        return f"{cluster}/{node}"
+
+    @property
+    def login_names(self) -> List[str]:
+        names = [
+            self.id,
+            f"{self.cluster_id}/{self.id}",
+            f"{self.node_id}/{self.id}",
+        ]
+        if self.cluster_id and self.node_id:
+            names.append(f"{self.cluster_id}/{self.node_id}/{self.id}")
+        names.extend(self.login_aliases or [])
+        return list(dict.fromkeys(str(name) for name in names if name))
 
 
 # ============ 加载实例配置 ============
@@ -79,6 +108,22 @@ def get_instance(user_id: str) -> Optional[InstanceConfig]:
     return INSTANCES.get(user_id)
 
 
+def find_instance_by_login(username: str) -> Optional[InstanceConfig]:
+    """根据登录名或别名查找唯一实例。
+
+    精确匹配实例 id 优先；别名匹配必须唯一，避免跨集群同名账号误路由。
+    """
+    username = (username or "").strip()
+    if not username:
+        return None
+    if username in INSTANCES:
+        return INSTANCES[username]
+    matches = [inst for inst in INSTANCES.values() if username in inst.login_names]
+    if len(matches) == 1:
+        return matches[0]
+    return None
+
+
 # ============ 面板认证配置 ============
 PANEL_JWT_SECRET = os.getenv("PANEL_JWT_SECRET", "nekro-user-panel-secret-change-me")
 PANEL_JWT_ALGORITHM = "HS256"
@@ -97,4 +142,3 @@ PANEL_PORT = int(os.getenv("PANEL_PORT", "9054"))
 
 # ============ 前端静态文件 ============
 FRONTEND_DIR = os.getenv("FRONTEND_DIR", "./frontend_static")
-

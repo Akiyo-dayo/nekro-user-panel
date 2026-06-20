@@ -19,6 +19,7 @@ from config import (
     PANEL_JWT_ALGORITHM,
     PANEL_JWT_EXPIRE_HOURS,
     PANEL_JWT_SECRET,
+    find_instance_by_login,
     get_instance,
 )
 
@@ -98,8 +99,8 @@ def authenticate_panel_user(username: str, password: str) -> Optional[PanelUser]
     if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
         return PanelUser(username=username, instance_id="__admin__")
 
-    # 普通用户
-    instance = get_instance(username)
+    # 普通用户：支持实例 ID、cluster/id、node/id 以及 login_aliases。
+    instance = find_instance_by_login(username)
     if instance and instance.panel_password == password:
         return PanelUser(username=username, instance_id=instance.id)
     return None
@@ -224,4 +225,3 @@ async def get_optional_panel_user_lenient(request: Request) -> Optional[PanelUse
             return user
 
     return None
-

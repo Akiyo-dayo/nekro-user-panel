@@ -58,10 +58,10 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;background-ima
     <section class="summary" aria-label="概览">
       <div class="metric"><span>实例数量</span><b id="metric-count">0</b></div>
       <div class="metric"><span>当前选择</span><b id="metric-current">未选择</b></div>
-      <div class="metric"><span>路由策略</span><b>显式选择</b></div>
+      <div class="metric"><span>路由策略</span><b>集群 / 节点</b></div>
     </section>
     <section class="controls" aria-label="筛选实例">
-      <div class="search-wrap"><input id="search" type="search" placeholder="搜索实例 ID、备注、端口或主机" autocomplete="off" oninput="renderInstances()"><span class="search-icon">Search</span></div>
+      <div class="search-wrap"><input id="search" type="search" placeholder="搜索实例 ID、集群、节点、备注、端口或主机" autocomplete="off" oninput="renderInstances()"><span class="search-icon">Search</span></div>
       <button class="btn" onclick="clearSearch()">清空搜索</button>
       <div class="result-count" id="result-count">0 个结果</div>
     </section>
@@ -77,6 +77,12 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;background-ima
       <div class="form-group"><label>面板登录密码</label><input id="f-password" type="text" placeholder="面板密码"></div>
       <div class="form-group"><label>NA 端口</label><input id="f-port" type="number" placeholder="8021"></div>
       <div class="form-group"><label>NA 主机</label><input id="f-host" value="127.0.0.1"></div>
+      <div class="form-group"><label>集群 ID</label><input id="f-cluster-id" value="default" placeholder="default"></div>
+      <div class="form-group"><label>集群名称</label><input id="f-cluster-name" placeholder="例如 Denia"></div>
+      <div class="form-group"><label>节点 ID</label><input id="f-node-id" value="local" placeholder="local"></div>
+      <div class="form-group"><label>节点名称</label><input id="f-node-name" placeholder="例如 Denia Mac mini"></div>
+      <div class="form-group full"><label>NA 完整地址</label><input id="f-base-url" placeholder="可选，例如 http://10.0.0.12:8021；填写后优先使用"></div>
+      <div class="form-group full"><label>登录别名</label><input id="f-aliases" placeholder="可选，多个用英文逗号分隔"></div>
       <div class="form-group"><label>NA 管理员用户名</label><input id="f-admin-user" value="admin"></div>
       <div class="form-group"><label>NA 管理员密码</label><input id="f-admin-pass" type="text" placeholder="NA admin 密码"></div>
       <div class="form-group full"><label>备注</label><input id="f-comment" placeholder="可选"></div>
@@ -94,7 +100,7 @@ let editingId = null;
 let instancesCache = [];
 
 function escapeHtml(v){return String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
-function searchableText(i){return [i.id,i.comment,i.na_host,i.na_port,i.na_admin_user].map(v=>String(v ?? '').toLowerCase()).join(' ');}
+function searchableText(i){return [i.id,i.comment,i.na_host,i.na_port,i.na_admin_user,i.cluster_id,i.cluster_name,i.node_id,i.node_name,i.na_base_url,i.na_backend_url,(i.login_aliases||[]).join(',')].map(v=>String(v ?? '').toLowerCase()).join(' ');}
 
 function clearAuthStorage(){
   ['nekro_user_panel_token','nekro_user_panel_username','nekro_user_panel_userinfo','panel_token','token','auth-storage'].forEach(k => localStorage.removeItem(k));
@@ -115,7 +121,7 @@ function syncWebuiAuthStorage(){
 async function logout(){try { await fetch('/panel/logout', {method:'POST', headers}); } catch(e) {} clearAuthStorage(); location.href = '/webui';}
 
 async function loadCurrent(){
-  try{const resp = await fetch('/panel/admin/current-instance', {headers}); if(resp.ok){const data = await resp.json(); document.getElementById('metric-current').textContent = data.instance_id || '未选择';}}catch(e){}
+  try{const resp = await fetch('/panel/admin/current-instance', {headers}); if(resp.ok){const data = await resp.json(); document.getElementById('metric-current').textContent = data.instance_id ? `${data.instance_id} · ${data.route_label || data.na_backend_url || ''}` : '未选择';}}catch(e){}
 }
 async function loadInstances(){
   const resp = await fetch('/panel/admin/instances', {headers});
@@ -140,8 +146,10 @@ function renderInstances(){
         <span class="status-pill">configured</span>
       </div>
       <div class="fields">
-        <span class="field">${escapeHtml(i.na_host)}:${escapeHtml(i.na_port)}</span>
+        <span class="field">${escapeHtml(i.route_label || `${i.cluster_id || 'default'}/${i.node_id || 'local'}`)}</span>
+        <span class="field">${escapeHtml(i.na_backend_url || i.na_base_url || `${i.na_host}:${i.na_port}`)}</span>
         <span class="field">管理员 ${escapeHtml(i.na_admin_user)}</span>
+        ${(i.login_aliases || []).length ? `<span class="field">别名 ${escapeHtml(i.login_aliases.join(', '))}</span>` : ''}
       </div>
       <div class="actions">
         <button class="btn btn-success btn-sm" onclick="enterInstance('${escapeHtml(i.id)}')">进入管理</button>
@@ -151,10 +159,10 @@ function renderInstances(){
     </article>`).join('');
 }
 function clearSearch(){document.getElementById('search').value=''; renderInstances(); document.getElementById('search').focus();}
-function showCreateModal(){editingId=null; document.getElementById('modal-title').textContent='添加实例'; ['f-id','f-password','f-port','f-comment'].forEach(id=>document.getElementById(id).value=''); document.getElementById('f-id').disabled=false; document.getElementById('f-admin-user').value='admin'; document.getElementById('f-admin-pass').value=''; document.getElementById('f-host').value='127.0.0.1'; document.getElementById('modal').classList.add('active');}
-async function editInstance(id){const resp = await fetch(`/panel/admin/instances/${encodeURIComponent(id)}`, {headers}); const data = await resp.json(); editingId=id; document.getElementById('modal-title').textContent='编辑实例: '+id; document.getElementById('f-id').value=data.id; document.getElementById('f-id').disabled=false; document.getElementById('f-password').value=data.panel_password; document.getElementById('f-port').value=data.na_port; document.getElementById('f-admin-user').value=data.na_admin_user; document.getElementById('f-admin-pass').value=data.na_admin_pass; document.getElementById('f-host').value=data.na_host; document.getElementById('f-comment').value=data.comment || ''; document.getElementById('modal').classList.add('active');}
+function showCreateModal(){editingId=null; document.getElementById('modal-title').textContent='添加实例'; ['f-id','f-password','f-port','f-comment','f-cluster-name','f-node-name','f-base-url','f-aliases'].forEach(id=>document.getElementById(id).value=''); document.getElementById('f-id').disabled=false; document.getElementById('f-admin-user').value='admin'; document.getElementById('f-admin-pass').value=''; document.getElementById('f-host').value='127.0.0.1'; document.getElementById('f-cluster-id').value='default'; document.getElementById('f-node-id').value='local'; document.getElementById('modal').classList.add('active');}
+async function editInstance(id){const resp = await fetch(`/panel/admin/instances/${encodeURIComponent(id)}`, {headers}); const data = await resp.json(); editingId=id; document.getElementById('modal-title').textContent='编辑实例: '+id; document.getElementById('f-id').value=data.id; document.getElementById('f-id').disabled=false; document.getElementById('f-password').value=data.panel_password; document.getElementById('f-port').value=data.na_port || ''; document.getElementById('f-admin-user').value=data.na_admin_user; document.getElementById('f-admin-pass').value=data.na_admin_pass; document.getElementById('f-host').value=data.na_host || '127.0.0.1'; document.getElementById('f-cluster-id').value=data.cluster_id || 'default'; document.getElementById('f-cluster-name').value=data.cluster_name || ''; document.getElementById('f-node-id').value=data.node_id || 'local'; document.getElementById('f-node-name').value=data.node_name || ''; document.getElementById('f-base-url').value=data.na_base_url || ''; document.getElementById('f-aliases').value=(data.login_aliases || []).join(', '); document.getElementById('f-comment').value=data.comment || ''; document.getElementById('modal').classList.add('active');}
 function closeModal(){document.getElementById('modal').classList.remove('active');}
-async function submitForm(){const body={id:document.getElementById('f-id').value.trim(),panel_password:document.getElementById('f-password').value,na_port:parseInt(document.getElementById('f-port').value),na_admin_user:document.getElementById('f-admin-user').value.trim(),na_admin_pass:document.getElementById('f-admin-pass').value,na_host:document.getElementById('f-host').value.trim(),comment:document.getElementById('f-comment').value.trim()}; if(!body.id || !body.panel_password || !body.na_port || !body.na_admin_pass){toast('请填写所有必填字段','error');return;} const url = editingId ? `/panel/admin/instances/${encodeURIComponent(editingId)}` : '/panel/admin/instances'; const method = editingId ? 'PUT' : 'POST'; const resp = await fetch(url,{method,headers,body:JSON.stringify(body)}); const result = await resp.json().catch(()=>({})); if(resp.ok){toast(result.message || '已保存','success'); closeModal(); loadInstances();} else {toast(result.detail || '操作失败','error');}}
+async function submitForm(){const portValue=document.getElementById('f-port').value.trim(); const baseUrl=document.getElementById('f-base-url').value.trim(); const body={id:document.getElementById('f-id').value.trim(),panel_password:document.getElementById('f-password').value,na_port:portValue ? parseInt(portValue,10) : null,na_admin_user:document.getElementById('f-admin-user').value.trim(),na_admin_pass:document.getElementById('f-admin-pass').value,na_host:document.getElementById('f-host').value.trim(),na_base_url:baseUrl || null,cluster_id:document.getElementById('f-cluster-id').value.trim() || 'default',cluster_name:document.getElementById('f-cluster-name').value.trim(),node_id:document.getElementById('f-node-id').value.trim() || 'local',node_name:document.getElementById('f-node-name').value.trim(),login_aliases:document.getElementById('f-aliases').value.split(',').map(v=>v.trim()).filter(Boolean),comment:document.getElementById('f-comment').value.trim()}; if(!body.id || !body.panel_password || (!body.na_port && !body.na_base_url) || !body.na_admin_pass){toast('请填写用户 ID、面板密码、NA 地址/端口、NA 管理员密码','error');return;} const url = editingId ? `/panel/admin/instances/${encodeURIComponent(editingId)}` : '/panel/admin/instances'; const method = editingId ? 'PUT' : 'POST'; const resp = await fetch(url,{method,headers,body:JSON.stringify(body)}); const result = await resp.json().catch(()=>({})); if(resp.ok){toast(result.message || '已保存','success'); closeModal(); loadInstances();} else {toast(result.detail || '操作失败','error');}}
 async function deleteInstance(id){if(!confirm(`确定删除实例 "${id}" 吗？`)) return; const resp = await fetch(`/panel/admin/instances/${encodeURIComponent(id)}`,{method:'DELETE',headers}); const result = await resp.json().catch(()=>({})); if(resp.ok){toast(result.message || '已删除','success'); loadInstances();} else {toast(result.detail || '删除失败','error');}}
 async function enterInstance(id){const resp = await fetch(`/panel/admin/switch-instance/${encodeURIComponent(id)}`,{method:'POST',headers}); if(resp.ok){syncWebuiAuthStorage(); toast('已切换到实例: '+id,'success'); await loadCurrent(); setTimeout(()=>{location.href='/webui#/dashboard';},350);} else {const err=await resp.json().catch(()=>({})); toast(err.detail || '切换失败','error');}}
 function toast(msg,type){const el=document.createElement('div');el.className='toast '+type;el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),3200);}
