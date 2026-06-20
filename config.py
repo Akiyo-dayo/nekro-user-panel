@@ -68,10 +68,8 @@ class NodeConfig(BaseModel):
     cluster_name: str = ""
     role: str = "node"
     panel_base_url: Optional[str] = None
-    ncqq_base_url: Optional[str] = None
-    ssh_host: str = ""
-    ssh_port: Optional[int] = None
-    ssh_user: str = ""
+    manager_base_url: Optional[str] = None
+    manager_api_key: str = ""
     status: str = "unknown"
     comment: str = ""
 
@@ -113,15 +111,12 @@ def load_instances() -> Dict[str, InstanceConfig]:
 def _default_nodes() -> List[dict]:
     return [
         {
-            "id": "denia",
+            "id": "local",
             "name": "Denia headquarters",
-            "cluster_id": "denia",
+            "cluster_id": "default",
             "cluster_name": "Denia",
             "role": "headquarters",
             "panel_base_url": "http://127.0.0.1:9054",
-            "ssh_host": "xa.akiyo.fun",
-            "ssh_port": 24022,
-            "ssh_user": "F1yCar",
             "status": "online",
             "comment": "Headquarters panel on Denia.",
         }
@@ -139,7 +134,12 @@ def load_nodes() -> Dict[str, NodeConfig]:
 
     nodes = {}
     for item in raw:
-        node = NodeConfig(**item)
+        normalized = dict(item)
+        if "manager_base_url" not in normalized and "ncqq_base_url" in normalized:
+            normalized["manager_base_url"] = normalized.get("ncqq_base_url")
+        if "manager_api_key" not in normalized and "api_key" in normalized:
+            normalized["manager_api_key"] = normalized.get("api_key") or ""
+        node = NodeConfig(**normalized)
         nodes[node.id] = node
     return nodes
 

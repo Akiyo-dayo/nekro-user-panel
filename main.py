@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
+import httpx
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -164,7 +165,10 @@ async def get_node_detail(node_id: str, user: PanelUser = Depends(get_current_pa
     node = get_node(node_id)
     if not node:
         return JSONResponse(status_code=404, content={"detail": "节点不存在"})
-    return node.model_dump()
+    data = _node_summary(node)
+    data["manager_api_key"] = ""
+    data["manager_api_key_set"] = bool(node.manager_api_key)
+    return data
 
 
 @app.post("/panel/admin/nodes", tags=["Panel Admin"])
@@ -205,6 +209,17 @@ async def delete_node(node_id: str, user: PanelUser = Depends(get_current_panel_
     return {"status": "ok", "message": f"节点 {node_id} 已删除"}
 
 
+@app.post("/panel/admin/nodes/{node_id}/probe", tags=["Panel Admin"])
+async def probe_node(node_id: str, user: PanelUser = Depends(get_current_panel_user)):
+    """Probe the HTTP-facing entry points for a node."""
+    if not is_admin(user):
+        return JSONResponse(status_code=403, content={"detail": "仅管理员可操作"})
+    node = get_node(node_id)
+    if not node:
+        return JSONResponse(status_code=404, content={"detail": "节点不存在"})
+    return await _probe_node(node)
+
+
 def _node_summary(node: NodeConfig) -> dict:
     """Return the safe admin-list shape for a node."""
     owned_instances = [inst.id for inst in INSTANCES.values() if inst.node_id == node.id]
@@ -216,15 +231,72 @@ def _node_summary(node: NodeConfig) -> dict:
         "cluster_name": node.cluster_name,
         "role": node.role,
         "panel_base_url": node.panel_base_url,
-        "ncqq_base_url": node.ncqq_base_url,
-        "ssh_host": node.ssh_host,
-        "ssh_port": node.ssh_port,
-        "ssh_user": node.ssh_user,
+        "manager_base_url": node.manager_base_url,
+        "manager_api_key_set": bool(node.manager_api_key),
         "status": node.status,
         "comment": node.comment,
         "route_label": node.route_label,
         "instance_count": len(owned_instances),
         "instances": owned_instances,
+    }
+
+
+async def _probe_node(node: NodeConfig) -> dict:
+    """Check HTTP reachability without exposing node secrets to the browser."""
+    candidates: list[tuple[str, str]] = []
+    if node.manager_base_url:
+        candidates.append(("manager", node.manager_base_url.rstrip("/")))
+    if node.panel_base_url:
+        candidates.append(("panel", node.panel_base_url.rstrip("/")))
+
+    if not candidates:
+        return {
+            "status": "unconfigured",
+            "message": "节点还没有配置可由总部访问的 HTTP 入口。",
+            "checks": [],
+        }
+
+    checks = []
+    headers = {}
+    if node.manager_api_key:
+        headers["X-API-Key"] = node.manager_api_key
+        headers["Authorization"] = f"Bearer {node.manager_api_key}"
+
+    async with httpx.AsyncClient(timeout=4.0, follow_redirects=True) as client:
+        for kind, base_url in candidates:
+            paths = ["/api/cluster/status", "/api/health", "/panel/admin/nodes", "/webui", "/"]
+            if kind == "panel":
+                paths = ["/webui", "/panel/admin/nodes", "/"]
+            for path in paths:
+                url = f"{base_url}{path}"
+                try:
+                    resp = await client.get(url, headers=headers if kind == "manager" else None)
+                    reachable = resp.status_code < 500
+                    checks.append({
+                        "kind": kind,
+                        "url": url,
+                        "status_code": resp.status_code,
+                        "reachable": reachable,
+                    })
+                    if reachable:
+                        return {
+                            "status": "online" if resp.status_code < 400 else "reachable",
+                            "message": f"{kind} HTTP 入口可达: HTTP {resp.status_code}",
+                            "checks": checks,
+                        }
+                except Exception as exc:
+                    checks.append({
+                        "kind": kind,
+                        "url": url,
+                        "status_code": None,
+                        "reachable": False,
+                        "error": str(exc),
+                    })
+
+    return {
+        "status": "offline",
+        "message": "总部无法访问该节点配置的 HTTP 入口。",
+        "checks": checks,
     }
 
 
@@ -261,21 +333,25 @@ def _save_node(data: dict, create: bool):
     data["cluster_name"] = str(data.get("cluster_name") or "").strip()
     data["role"] = str(data.get("role") or "node").strip()
     data["panel_base_url"] = str(data.get("panel_base_url") or "").strip().rstrip("/") or None
-    data["ncqq_base_url"] = str(data.get("ncqq_base_url") or "").strip().rstrip("/") or None
-    data["ssh_host"] = str(data.get("ssh_host") or "").strip()
-    data["ssh_user"] = str(data.get("ssh_user") or "").strip()
+    data["manager_base_url"] = str(
+        data.get("manager_base_url") or data.get("ncqq_base_url") or data.get("address") or ""
+    ).strip().rstrip("/") or None
+    incoming_api_key = str(data.get("manager_api_key") or data.get("api_key") or "").strip()
     data["status"] = str(data.get("status") or "unknown").strip()
     data["comment"] = str(data.get("comment") or "").strip()
-    if data.get("ssh_port") not in (None, ""):
-        try:
-            data["ssh_port"] = int(data["ssh_port"])
-        except (TypeError, ValueError):
-            return JSONResponse(status_code=400, content={"detail": "ssh_port 必须是数字"})
-    else:
-        data["ssh_port"] = None
 
     path = Path(NODES_FILE)
     nodes_list = _read_nodes_list(path)
+    existing_node = next((n for n in nodes_list if n.get("id") == (old_id or data["id"])), None)
+    data["manager_api_key"] = incoming_api_key
+    if not create and not incoming_api_key and existing_node:
+        data["manager_api_key"] = (
+            existing_node.get("manager_api_key")
+            or existing_node.get("api_key")
+            or ""
+        )
+    for deprecated in ("ncqq_base_url", "ssh_host", "ssh_user", "ssh_port", "address", "api_key"):
+        data.pop(deprecated, None)
 
     if create:
         if any(n.get("id") == data["id"] for n in nodes_list):
@@ -407,6 +483,8 @@ def _save_instance(data: dict, create: bool):
     data["cluster_name"] = str(data.get("cluster_name") or "").strip()
     data["node_id"] = str(data.get("node_id") or "local").strip()
     data["node_name"] = str(data.get("node_name") or "").strip()
+    if data["node_id"] not in NODES:
+        return JSONResponse(status_code=400, content={"detail": f"节点 {data['node_id']} 不存在，请先添加节点"})
     data["comment"] = str(data.get("comment") or "").strip()
     data["allowed_model_groups"] = data.get("allowed_model_groups") or []
     aliases = data.get("login_aliases") or []
