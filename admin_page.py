@@ -5,28 +5,28 @@ import html
 
 BRAND_STYLE = """
 :root{
-  --bg:#f7f9fc;--bg-soft:#fff6fa;--surface:#ffffff;--surface-2:#f2f5f9;--surface-3:#fff9fc;
-  --line:#e4e8f0;--line-strong:#d6dce8;--ink:#182033;--muted:#596174;--faint:#7b8497;
-  --brand:#ea5252;--brand-2:#9c6ade;--brand-3:#20cfe3;--sun:#ffd34d;
-  --brand-soft:rgba(234,82,82,.10);--accent-soft:rgba(156,106,222,.10);
+  --bg:#fff0f3;--bg-soft:#ffe8ee;--surface:#fff8fb;--surface-2:#fff1f6;--surface-3:#fffafd;
+  --line:#f2cfd9;--line-strong:#eab8c6;--ink:#261b25;--muted:#755d6a;--faint:#9a7f8c;
+  --brand:#ea5252;--brand-2:#ff9bb3;--brand-3:#9c6ade;--sun:#ffd34d;
+  --brand-soft:rgba(234,82,82,.12);--accent-soft:rgba(255,155,179,.18);
   --success:#2fa66a;--warning:#f59e0b;--danger:#e5484d;--info:#2f80ed;
-  --shadow:0 14px 38px rgba(55,64,88,.12);--shadow-soft:0 8px 24px rgba(234,82,82,.10);
+  --shadow:0 18px 42px rgba(166,70,92,.13);--shadow-soft:0 10px 26px rgba(234,82,82,.13);
   --radius:8px;--ease:cubic-bezier(.16,1,.3,1);
   font-family:Inter,"Open Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
 }
 *{box-sizing:border-box}html,body{min-height:100%}
 body{
   margin:0;color:var(--ink);background:
-    radial-gradient(circle at 12% 8%,rgba(234,82,82,.10),transparent 28rem),
-    radial-gradient(circle at 86% 12%,rgba(156,106,222,.10),transparent 30rem),
-    linear-gradient(135deg,var(--bg),#fff 48%,#f8fbff);
+    radial-gradient(circle at 12% 8%,rgba(234,82,82,.16),transparent 30rem),
+    radial-gradient(circle at 84% 14%,rgba(255,155,179,.18),transparent 32rem),
+    linear-gradient(135deg,var(--bg),#fff8fb 48%,#fff3f7);
   font-size:14px;
 }
 body:before{
   content:"";position:fixed;inset:0;pointer-events:none;opacity:.55;
   background-image:
-    linear-gradient(rgba(234,82,82,.06) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(156,106,222,.05) 1px,transparent 1px);
+    linear-gradient(rgba(234,82,82,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,155,179,.045) 1px,transparent 1px);
   background-size:44px 44px;
   mask-image:linear-gradient(to bottom,black,transparent 78%);
 }
@@ -275,23 +275,24 @@ def get_admin_html() -> str:
 <style>
 {BRAND_STYLE}
 .app{{position:relative;z-index:1;min-height:100dvh;display:grid;grid-template-columns:252px minmax(0,1fr)}}
-.sidebar{{position:sticky;top:0;height:100dvh;border-right:1px solid var(--line);background:rgba(255,255,255,.88);backdrop-filter:blur(16px);padding:22px;display:flex;flex-direction:column;gap:20px}}
+.sidebar{{position:sticky;top:0;height:100dvh;border-right:1px solid var(--line);background:rgba(255,248,251,.92);backdrop-filter:blur(16px);padding:22px;display:flex;flex-direction:column;gap:20px}}
 .brand{{display:flex;align-items:center;gap:11px}}.brand:hover .brand-mark{{animation:tinyWave .42s var(--ease) both}}.brand b{{display:block;font-size:14px}}.brand .brand-sub{{display:block;color:var(--faint);font-size:12px;margin-top:2px}}
 .nav{{display:grid;gap:8px}}.nav-item{{border:1px solid transparent;background:transparent;color:var(--muted);justify-content:flex-start;width:100%;box-shadow:none}}.nav-item.active{{background:var(--brand-soft);border-color:rgba(234,82,82,.14);color:var(--brand)}}.nav-item:hover{{background:rgba(234,82,82,.06);box-shadow:none}}
 .nav-note{{border:1px solid var(--line);background:var(--surface-2);border-radius:var(--radius);padding:13px;color:var(--muted);font-size:12px;line-height:1.55}}
 .nav-actions{{margin-top:auto;display:grid;gap:9px}}.side-btn{{width:100%;justify-content:flex-start}}
 .main{{padding:28px;max-width:1480px;width:100%;margin:0 auto}}
-.topbar{{position:sticky;top:0;z-index:10;margin:-28px -28px 18px;padding:22px 28px 16px;background:linear-gradient(180deg,rgba(247,249,252,.96),rgba(247,249,252,.84) 74%,rgba(247,249,252,0));backdrop-filter:blur(14px)}}
+.topbar{{position:sticky;top:0;z-index:10;margin:-28px -28px 18px;padding:22px 28px 16px;background:linear-gradient(180deg,rgba(255,240,243,.96),rgba(255,240,243,.82) 74%,rgba(255,240,243,0));backdrop-filter:blur(14px)}}
 .topbar-row{{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}}.crumb{{margin:0 0 8px;color:var(--brand);font-size:12px;font-weight:820}}.title{{margin:0;font-size:27px;line-height:1.15;letter-spacing:0;text-wrap:balance}}.sub{{margin:8px 0 0;color:var(--muted);line-height:1.55;max-width:76ch;text-wrap:pretty}}.toolbar{{display:flex;gap:9px;align-items:center;flex-wrap:wrap;justify-content:flex-end}}
 .ops-strip{{display:grid;grid-template-columns:minmax(260px,1.45fr) repeat(3,minmax(140px,1fr));gap:10px;margin-bottom:18px}}
-.stat{{border:1px solid var(--line);background:rgba(255,255,255,.90);border-radius:var(--radius);padding:13px 14px;min-width:0;box-shadow:0 6px 18px rgba(55,64,88,.06);animation:riseIn .32s var(--ease) both}}.stat:nth-child(2){{animation-delay:.03s}}.stat:nth-child(3){{animation-delay:.06s}}.stat:nth-child(4){{animation-delay:.09s}}
+.stat{{border:1px solid rgba(234,82,82,.14);background:rgba(255,248,251,.86);border-radius:var(--radius);padding:13px 14px;min-width:0;box-shadow:0 8px 22px rgba(166,70,92,.07);animation:riseIn .32s var(--ease) both}}.stat:nth-child(2){{animation-delay:.03s}}.stat:nth-child(3){{animation-delay:.06s}}.stat:nth-child(4){{animation-delay:.09s}}
 .stat span{{display:block;color:var(--faint);font-size:12px}}.stat b{{display:block;margin-top:6px;font-size:18px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}.stat.current{{background:linear-gradient(135deg,#fff,rgba(234,82,82,.07));border-color:rgba(234,82,82,.18)}}.stat.current b{{color:var(--brand)}}
 .section{{margin-top:20px}}.section-head{{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:10px}}.section-head h2{{margin:0;font-size:17px;letter-spacing:0}}.section-head p{{margin:5px 0 0;color:var(--muted);font-size:13px;line-height:1.45}}
-.node-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:11px}}.instance-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:11px}}
-.card{{border:1px solid var(--line);background:rgba(255,255,255,.92);border-radius:var(--radius);padding:14px;display:grid;gap:12px;min-width:0;box-shadow:0 7px 22px rgba(55,64,88,.06);transition:border-color .18s var(--ease),box-shadow .18s var(--ease),transform .18s var(--ease);animation:riseIn .28s var(--ease) both}}
-.card:hover{{border-color:rgba(234,82,82,.24);box-shadow:0 12px 26px rgba(55,64,88,.11);transform:translateY(-1px)}}.card-head{{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}}.card h3{{margin:0;font-size:15px;line-height:1.3;letter-spacing:0}}.caption{{margin-top:4px;color:var(--muted);font-size:12px;line-height:1.45}}
-.fields{{display:grid;gap:7px}}.field{{display:flex;justify-content:space-between;gap:12px;border:1px solid rgba(228,232,240,.88);background:var(--surface-2);border-radius:var(--radius);padding:7px 9px;min-width:0}}.field span:first-child{{color:var(--faint);font-size:12px;white-space:nowrap}}.field span:last-child{{color:#30394d;font-size:12px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}}
-.chips{{display:flex;gap:6px;flex-wrap:wrap}}.chip{{border:1px solid rgba(47,128,237,.18);background:rgba(47,128,237,.07);color:#2368c0;border-radius:999px;padding:4px 7px;font-size:11px;font-weight:720}}.actions{{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:2px}}
+.node-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:12px}}.instance-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}}
+.card{{border:1px solid rgba(234,82,82,.13);background:linear-gradient(145deg,rgba(255,250,252,.96),rgba(255,243,247,.90));border-radius:var(--radius);padding:15px;display:grid;gap:12px;min-width:0;box-shadow:0 10px 28px rgba(166,70,92,.08);transition:border-color .18s var(--ease),box-shadow .18s var(--ease),transform .18s var(--ease);animation:riseIn .28s var(--ease) both}}
+.card:hover{{border-color:rgba(234,82,82,.24);box-shadow:0 14px 30px rgba(166,70,92,.13);transform:translateY(-1px)}}.card-head{{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}}.card h3{{margin:0;font-size:15px;line-height:1.3;letter-spacing:0}}.caption{{margin-top:4px;color:var(--muted);font-size:12px;line-height:1.45}}
+.fields{{display:grid;gap:7px}}.field{{display:flex;justify-content:space-between;gap:12px;border:1px solid rgba(242,207,217,.70);background:rgba(255,255,255,.48);border-radius:var(--radius);padding:7px 9px;min-width:0}}.field span:first-child{{color:var(--faint);font-size:12px;white-space:nowrap}}.field span:last-child{{color:#59404d;font-size:12px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}}
+.chips{{display:flex;gap:6px;flex-wrap:wrap}}.chip{{border:1px solid rgba(156,106,222,.18);background:rgba(156,106,222,.08);color:#6845a0;border-radius:999px;padding:4px 7px;font-size:11px;font-weight:720}}.actions{{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:2px}}
+.instance-card{{position:relative;overflow:hidden;gap:13px}}.instance-card:before{{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:linear-gradient(180deg,var(--brand-2),var(--brand));opacity:.68}}.instance-card .card-head,.instance-card .instance-meta,.instance-card .chips,.instance-card .actions,.instance-card details{{position:relative}}.instance-meta{{display:flex;gap:7px;flex-wrap:wrap}}.meta-pill{{border:1px solid rgba(234,82,82,.12);background:rgba(255,255,255,.58);border-radius:999px;padding:5px 8px;color:var(--muted);font-size:12px}}.meta-pill strong{{color:var(--ink);font-weight:760}}.status-note{{color:var(--faint);font-size:12px;line-height:1.45;min-height:18px}}.tech-details{{border-top:1px solid rgba(234,82,82,.10);padding-top:8px;color:var(--muted);font-size:12px}}.tech-details summary{{cursor:pointer;color:var(--faint);font-weight:720}}.tech-details code{{display:block;margin-top:7px;color:#6b5360;word-break:break-all;white-space:normal}}
 .empty{{grid-column:1/-1;border:1px dashed var(--line-strong);border-radius:var(--radius);padding:28px;text-align:center;color:var(--muted);background:rgba(255,255,255,.76)}}.empty b{{display:block;color:var(--ink);margin-bottom:6px}}
 .controls{{display:grid;grid-template-columns:minmax(220px,1fr) 190px auto auto;gap:9px;align-items:center;margin:0 0 12px}}.search input,.controls select{{width:100%;min-height:38px;border-radius:var(--radius);border:1px solid var(--line-strong);background:#fff;color:var(--ink);padding:0 11px;outline:none}}.search input:focus,.controls select:focus{{border-color:var(--brand);box-shadow:0 0 0 4px rgba(234,82,82,.10)}}.result-count{{color:var(--faint);font-size:12px;white-space:nowrap}}
 .modal-overlay{{display:none;position:fixed;inset:0;background:rgba(24,32,51,.32);z-index:30;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(8px)}}.modal-overlay.active{{display:flex}}.modal{{width:min(700px,100%);max-height:calc(100dvh - 36px);overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 24px 80px rgba(55,64,88,.24);padding:20px;animation:riseIn .22s var(--ease) both}}.modal h2{{margin:0 0 14px;font-size:20px}}.form-grid{{display:grid;grid-template-columns:1fr 1fr;gap:12px}}.form-group.full{{grid-column:1/-1}}.form-group label{{display:block;margin-bottom:6px;color:var(--ink);font-size:12px;font-weight:760}}.form-group input,.form-group select{{width:100%;min-height:39px;border-radius:var(--radius);border:1px solid var(--line-strong);background:#fff;color:var(--ink);padding:8px 10px;outline:none}}.form-group input[readonly]{{color:var(--muted);background:var(--surface-2)}}.form-section{{grid-column:1/-1;margin-top:2px;padding-top:12px;border-top:1px solid var(--line);color:var(--brand);font-size:12px;font-weight:850}}.hint{{margin-top:6px;color:var(--faint);font-size:12px;line-height:1.4}}.form-actions{{display:flex;justify-content:flex-end;gap:9px;margin-top:18px}}
@@ -352,7 +353,7 @@ def get_admin_html() -> str:
         <button class="btn btn-primary" onclick="showCreateInstanceModal()">添加实例</button>
       </div>
       <div class="controls" aria-label="筛选实例">
-        <div class="search"><input id="search" type="search" placeholder="搜索实例、节点、后端、别名或备注" autocomplete="off" oninput="renderInstances()"></div>
+        <div class="search"><input id="search" type="search" placeholder="搜索账号、备注、节点或别名" autocomplete="off" oninput="renderInstances(); probeVisibleInstances();"></div>
         <select id="node-filter" onchange="renderInstances()"><option value="">全部节点</option></select>
         <button class="btn" onclick="clearSearch()">清空筛选</button>
         <div class="result-count" id="result-count">0 个结果</div>
@@ -418,11 +419,16 @@ let editingId = null;
 let editingNodeId = null;
 let instancesCache = [];
 let nodesCache = [];
+let instanceStatusCache = {{}};
 
 function escapeHtml(v){{return String(v ?? '').replace(/[&<>'"]/g, c => ({{'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}}[c]));}}
 function escapeAttr(v){{return escapeHtml(v).replace(/`/g,'&#96;');}}
 function nodeById(id){{return nodesCache.find(n => n.id === id) || null;}}
 function statusClass(status){{return String(status || 'unknown').toLowerCase().replace(/[^a-z0-9_-]/g,'') || 'unknown';}}
+function statusLabel(status){{
+  const map = {{online:'在线', reachable:'可达', offline:'离线', checking:'探测中', unknown:'待探测', partial:'部分可达', unconfigured:'未配置'}};
+  return map[String(status || 'unknown').toLowerCase()] || status || '待探测';
+}}
 function searchableText(i){{return [i.id,i.comment,i.na_host,i.na_port,i.na_admin_user,i.cluster_id,i.cluster_name,i.node_id,i.node_name,i.na_base_url,i.na_backend_url,(i.login_aliases||[]).join(',')].map(v=>String(v ?? '').toLowerCase()).join(' ');}}
 function nowLabel(){{return new Date().toLocaleTimeString('zh-CN',{{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}});}}
 
@@ -470,6 +476,7 @@ async function loadInstances(){{
   document.getElementById('metric-count').textContent = data.length;
   await loadCurrent();
   renderInstances();
+  probeVisibleInstances();
 }}
 async function loadAll(){{await loadNodes(); await loadInstances(); document.getElementById('metric-updated').textContent = nowLabel(); toast('状态已更新','success');}}
 
@@ -485,22 +492,28 @@ function renderNodes(){{
   const el = document.getElementById('nodes-list');
   if(!nodesCache.length){{el.innerHTML='<div class="empty"><b>还没有节点</b>添加 Denia 总部或远端 HTTP 节点后会显示在这里。</div>';return;}}
   el.innerHTML = nodesCache.map(n => {{
-    const endpoint = n.manager_base_url || n.panel_base_url || '未配置';
-    return `<article class="card">
+    const endpoint = n.manager_base_url || n.panel_base_url || '未配置入口';
+    const canOpen = !!n.panel_base_url;
+    const nodeCopy = n.role === 'headquarters'
+      ? `总部节点，承载 ${{n.instance_count || 0}} 个实例。`
+      : `远端节点，当前承载 ${{n.instance_count || 0}} 个实例。`;
+    return `<article class="card node-card">
       <div class="card-head">
-        <div><h3>${{escapeHtml(n.display_name || n.name || n.id)}}</h3><div class="caption">${{escapeHtml(n.id)}} · ${{escapeHtml(n.route_label || n.cluster_id || 'default')}}</div></div>
-        <span class="badge ${{statusClass(n.status)}}">${{escapeHtml(n.status || 'unknown')}}</span>
+        <div><h3>${{escapeHtml(n.display_name || n.name || n.id)}}</h3><div class="caption">${{escapeHtml(n.route_label || n.cluster_id || 'default')}}</div></div>
+        <span class="badge ${{statusClass(n.status)}}">${{escapeHtml(statusLabel(n.status))}}</span>
       </div>
-      <div class="fields">
-        <div class="field"><span>角色</span><span>${{escapeHtml(n.role || 'node')}}</span></div>
-        <div class="field"><span>实例</span><span>${{escapeHtml(n.instance_count || 0)}}</span></div>
-        <div class="field"><span>HTTP 入口</span><span title="${{escapeAttr(endpoint)}}">${{escapeHtml(endpoint)}}</span></div>
-        <div class="field"><span>API Key</span><span>${{n.manager_api_key_set ? '已设置' : '未设置'}}</span></div>
+      <div class="instance-meta">
+        <span class="meta-pill">角色 <strong>${{escapeHtml(n.role || 'node')}}</strong></span>
+        <span class="meta-pill">实例 <strong>${{escapeHtml(n.instance_count || 0)}}</strong></span>
       </div>
-      ${{n.comment ? `<div class="caption">${{escapeHtml(n.comment)}}</div>` : ''}}
+      <div class="status-note">${{escapeHtml(nodeCopy)}}</div>
+      <details class="tech-details">
+        <summary>节点入口</summary>
+        <code>${{escapeHtml(endpoint)}}</code>
+      </details>
       <div class="actions">
-        ${{n.panel_base_url ? `<button class="btn btn-sm btn-good" onclick="openPanel('${{escapeAttr(n.panel_base_url)}}')">打开面板</button>` : ''}}
-        <button class="btn btn-sm" onclick="probeNode('${{escapeAttr(n.id)}}')">测试连接</button>
+        ${{canOpen ? `<button class="btn btn-sm btn-good" onclick="openPanel('${{escapeAttr(n.panel_base_url)}}')">打开</button>` : ''}}
+        <button class="btn btn-sm" onclick="probeNode('${{escapeAttr(n.id)}}')">探测</button>
         <button class="btn btn-sm" onclick="editNode('${{escapeAttr(n.id)}}')">编辑</button>
         <button class="btn btn-sm btn-danger" onclick="deleteNode('${{escapeAttr(n.id)}}')">删除</button>
       </div>
@@ -513,36 +526,78 @@ function renderInstances(){{
   let data = instancesCache;
   if(nodeFilter) data = data.filter(i => i.node_id === nodeFilter);
   if(q) data = data.filter(i => searchableText(i).includes(q));
-  document.getElementById('result-count').textContent = `${{data.length}} / ${{instancesCache.length}} 个结果`;
+  document.getElementById('result-count').textContent = `${{data.length}} / ${{instancesCache.length}} 个实例`;
   const el = document.getElementById('instances-list');
-  if(!instancesCache.length){{el.innerHTML='<div class="empty"><b>还没有可管理的实例</b>点击“添加实例”绑定用户登录名和 NA 后端。</div>';return;}}
+  if(!instancesCache.length){{el.innerHTML='<div class="empty"><b>还没有可管理的实例</b>添加实例后，这里会显示账号入口和运行状态。</div>';return;}}
   if(!data.length){{el.innerHTML='<div class="empty"><b>没有符合条件的实例</b>清空筛选或换一个关键词试试。</div>';return;}}
   el.innerHTML = data.map(i => {{
     const node = nodeById(i.node_id);
     const nodeName = node ? (node.display_name || node.id) : (i.node_name || i.node_id || '未登记节点');
     const backend = i.na_backend_url || i.na_base_url || `${{i.na_host}}:${{i.na_port}}`;
-    return `<article class="card">
+    const route = i.route_label || `${{i.cluster_id || 'default'}}/${{i.node_id || 'local'}}`;
+    const state = instanceStatusCache[i.id] || {{status:'unknown', message:'等待总部探测'}};
+    const aliases = (i.login_aliases || []).slice(0, 3);
+    return `<article class="card instance-card" data-instance-id="${{escapeAttr(i.id)}}">
       <div class="card-head">
-        <div><h3>${{escapeHtml(i.id)}}</h3><div class="caption">${{escapeHtml(i.comment || '无备注')}}</div></div>
-        <span class="badge unknown">未探测</span>
+        <div><h3>${{escapeHtml(i.id)}}</h3><div class="caption">${{escapeHtml(i.comment || 'Nekro Agent 实例')}}</div></div>
+        <span class="badge ${{statusClass(state.status)}}">${{escapeHtml(statusLabel(state.status))}}</span>
       </div>
-      <div class="fields">
-        <div class="field"><span>节点</span><span>${{escapeHtml(nodeName)}}</span></div>
-        <div class="field"><span>路由</span><span>${{escapeHtml(i.route_label || `${{i.cluster_id || 'default'}}/${{i.node_id || 'local'}}`)}}</span></div>
-        <div class="field"><span>后端</span><span title="${{escapeAttr(backend)}}">${{escapeHtml(backend)}}</span></div>
-        <div class="field"><span>管理员</span><span>${{escapeHtml(i.na_admin_user || 'admin')}}</span></div>
+      <div class="instance-meta">
+        <span class="meta-pill">节点 <strong>${{escapeHtml(nodeName)}}</strong></span>
+        <span class="meta-pill">路由 <strong>${{escapeHtml(route)}}</strong></span>
       </div>
-      ${{(i.login_aliases || []).length ? `<div class="chips">${{i.login_aliases.map(a => `<span class="chip">${{escapeHtml(a)}}</span>`).join('')}}</div>` : ''}}
+      ${{aliases.length ? `<div class="chips">${{aliases.map(a => `<span class="chip">${{escapeHtml(a)}}</span>`).join('')}}</div>` : ''}}
+      <div class="status-note">${{escapeHtml(state.message || '等待总部探测')}}</div>
+      <details class="tech-details">
+        <summary>技术详情</summary>
+        <code>${{escapeHtml(backend)}}</code>
+      </details>
       <div class="actions">
-        <button class="btn btn-sm btn-good" onclick="enterInstance('${{escapeAttr(i.id)}}')">进入管理</button>
-        <button class="btn btn-sm" onclick="copyText('${{escapeAttr(backend)}}')">复制后端</button>
+        <button class="btn btn-sm btn-good" onclick="enterInstance('${{escapeAttr(i.id)}}')">进入</button>
+        <button class="btn btn-sm" onclick="probeInstance('${{escapeAttr(i.id)}}')">探测</button>
         <button class="btn btn-sm" onclick="editInstance('${{escapeAttr(i.id)}}')">编辑</button>
         <button class="btn btn-sm btn-danger" onclick="deleteInstance('${{escapeAttr(i.id)}}')">删除</button>
       </div>
     </article>`;
   }}).join('');
 }}
-function clearSearch(){{document.getElementById('search').value=''; document.getElementById('node-filter').value=''; renderInstances(); document.getElementById('search').focus();}}
+function updateInstanceCard(id, result){{
+  instanceStatusCache[id] = result;
+  const card = document.querySelector(`[data-instance-id="${{CSS.escape(id)}}"]`);
+  if(!card) return;
+  const badge = card.querySelector('.badge');
+  const note = card.querySelector('.status-note');
+  if(badge){{
+    badge.className = 'badge ' + statusClass(result.status);
+    badge.textContent = statusLabel(result.status);
+  }}
+  if(note) note.textContent = result.message || statusLabel(result.status);
+}}
+async function probeInstance(id, quiet=false){{
+  updateInstanceCard(id, {{status:'checking', message:'总部正在探测'}});
+  const resp = await fetch(`/panel/admin/instances/${{encodeURIComponent(id)}}/probe`, {{method:'POST', headers}});
+  const result = await resp.json().catch(()=>({{}}));
+  if(resp.ok){{
+    updateInstanceCard(id, result);
+    if(!quiet) toast(result.message || '实例状态已更新', (result.status === 'online' || result.status === 'reachable') ? 'success' : 'error');
+  }} else {{
+    const failed = {{status:'offline', message: result.detail || '探测失败'}};
+    updateInstanceCard(id, failed);
+    if(!quiet) toast(failed.message, 'error');
+  }}
+}}
+async function probeVisibleInstances(){{
+  const cards = Array.from(document.querySelectorAll('[data-instance-id]')).slice(0, 60);
+  const queue = cards.map(card => card.getAttribute('data-instance-id')).filter(Boolean);
+  const workers = Array.from({{length: Math.min(5, queue.length)}}, async () => {{
+    while(queue.length){{
+      const id = queue.shift();
+      if(id) await probeInstance(id, true).catch(() => updateInstanceCard(id, {{status:'offline', message:'探测失败'}}));
+    }}
+  }});
+  await Promise.all(workers);
+}}
+function clearSearch(){{document.getElementById('search').value=''; document.getElementById('node-filter').value=''; renderInstances(); probeVisibleInstances(); document.getElementById('search').focus();}}
 function openPanel(url){{ if(url.includes('127.0.0.1:9054') || url.includes('localhost:9054')) location.href='/panel/admin'; else window.open(url, '_blank', 'noopener'); }}
 async function copyText(text){{if(!text){{toast('没有可复制的后端地址','error');return;}} await navigator.clipboard.writeText(text); toast('已复制后端地址','success');}}
 

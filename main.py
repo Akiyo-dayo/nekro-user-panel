@@ -395,6 +395,63 @@ async def get_instance_detail(instance_id: str, user: PanelUser = Depends(get_cu
     return inst.model_dump()
 
 
+@app.post("/panel/admin/instances/{instance_id}/probe", tags=["Panel Admin"])
+async def probe_instance(instance_id: str, user: PanelUser = Depends(get_current_panel_user)):
+    """Probe a single NA instance from the headquarters panel."""
+    if not is_admin(user):
+        return JSONResponse(status_code=403, content={"detail": "仅管理员可操作"})
+    inst = get_instance(instance_id)
+    if not inst:
+        return JSONResponse(status_code=404, content={"detail": "实例不存在"})
+    return await _probe_instance(inst)
+
+
+async def _probe_instance(inst: InstanceConfig) -> dict:
+    """Check whether a configured NA backend is reachable and accepts its admin credentials."""
+    import time
+
+    started = time.perf_counter()
+    checks = []
+    try:
+        token = await get_na_backend_token(inst)
+        checks.append({"step": "token", "ok": True})
+    except Exception as exc:
+        return {
+            "status": "offline",
+            "message": "无法获取 NA 管理凭据，实例可能离线或密码已变更。",
+            "latency_ms": int((time.perf_counter() - started) * 1000),
+            "checks": [{"step": "token", "ok": False, "error": str(exc)}],
+        }
+
+    async with httpx.AsyncClient(base_url=inst.na_backend_url, timeout=4.0, follow_redirects=True) as client:
+        for path in ("/webui/", "/api/user/me", "/"):
+            try:
+                headers = {"Authorization": f"Bearer {token}"}
+                resp = await client.get(path, headers=headers)
+                reachable = resp.status_code < 500
+                checks.append({
+                    "step": path,
+                    "ok": reachable,
+                    "status_code": resp.status_code,
+                })
+                if reachable:
+                    return {
+                        "status": "online" if resp.status_code < 400 else "reachable",
+                        "message": f"{inst.id} 可访问，HTTP {resp.status_code}",
+                        "latency_ms": int((time.perf_counter() - started) * 1000),
+                        "checks": checks,
+                    }
+            except Exception as exc:
+                checks.append({"step": path, "ok": False, "error": str(exc)})
+
+    return {
+        "status": "offline",
+        "message": f"{inst.id} 暂时不可达。",
+        "latency_ms": int((time.perf_counter() - started) * 1000),
+        "checks": checks,
+    }
+
+
 def _instance_summary(inst: InstanceConfig) -> dict:
     """Return the safe admin-list shape for an instance."""
     return {
